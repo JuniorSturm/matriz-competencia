@@ -1,6 +1,6 @@
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export interface LoginRequest  { email: string; password: string }
-export interface LoginResponse { token: string; name: string; isManager: boolean }
+export interface LoginResponse { id: string; token: string; name: string; isManager: boolean }
 
 // ─── Cargos / Níveis ──────────────────────────────────────────────────────────
 export interface CargoOption { id: number; nome: string }

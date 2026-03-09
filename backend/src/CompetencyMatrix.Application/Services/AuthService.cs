@@ -23,6 +23,6 @@ public class AuthService : IAuthService
         if (!BC.Verify(request.Password, user.Password)) return null;
 
         var token = _jwt.GenerateToken(user.Id, user.Email, user.IsManager);
-        return new LoginResponse(token, user.Name, user.IsManager);
+        return new LoginResponse(user.Id.ToString(), token, user.Name, user.IsManager);
     }
 }

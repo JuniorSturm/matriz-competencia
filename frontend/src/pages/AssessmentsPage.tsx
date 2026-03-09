@@ -49,7 +49,7 @@ export default function AssessmentsPage() {
   const { user: authUser } = useAuth()
   const { data: users }    = useUsers()
   const { data: skills }   = useSkills()
-  const [selectedUserId, setSelectedUserId] = useState<string>(authUser?.isManager ? '' : (authUser?.name ?? ''))
+  const [selectedUserId, setSelectedUserId] = useState<string>(authUser?.isManager ? '' : (authUser?.id ?? ''))
   const { data: assessments, isLoading, error } = useAssessments(selectedUserId)
   const upsertMutation = useUpsertAssessment()
   const [tabIndex, setTabIndex] = useState(0)

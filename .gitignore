@@ -5,6 +5,13 @@ node_modules/
 dist/
 *.local
 
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+*.cache
+
 # Logs e ambiente
 .env
 .env.local

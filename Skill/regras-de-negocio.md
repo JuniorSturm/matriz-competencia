@@ -404,13 +404,14 @@ Todas as operações de escrita são idempotentes — chamadas repetidas com a m
 
 ## 14. Dashboard
 
-- Exibe saudação: `"Bem-vindo, {user.name}"`.
+- Exibe saudação: `"Bem-vindo, {user.name}"` com animação de aceno (wave).
 - Acessível por todos os usuários autenticados (colaboradores e gestores).
+- **Visão diferenciada**: gestores veem painel de gestão do time; colaboradores veem dashboard pessoal de boas-vindas e orientação.
 
-### 14.1 Cards KPI Básicos
-- 3 cards fixos: **Colaboradores**, **Competências**, **Gestores**.
-- 4º card: **Aderência Geral (%)** para gestores; **Taxa de Avaliação** para não-gestores.
+### 14.1 Visão do Gestor — Cards KPI Básicos
+- 4 cards: **Colaboradores**, **Competências**, **Gestores**, **Aderência Geral (%)**.
 - Contagem de gestores = `users.filter(u => u.isManager).length`.
+- Apenas visível quando `user.isManager === true`.
 
 ### 14.2 Resumo do Time (somente gestores)
 - Visível apenas quando `user.isManager === true`.
@@ -449,6 +450,39 @@ Todas as operações de escrita são idempotentes — chamadas repetidas com a m
 ### 14.8 Tooltips (ícones de informação)
 - Cada indicador e seção possui um ícone `InfoOutlinedIcon` que exibe tooltip ao passar o mouse.
 - Tooltips explicam o significado do indicador e como ele é calculado.
+
+### 14.9 Visão do Colaborador — Dashboard Pessoal
+
+O colaborador (não-gestor) vê um dashboard personalizado focado em **boas-vindas e orientação de uso**, com um overview básico dos seus GAPs pessoais.
+
+#### 14.9.1 Subtítulo de Boas-vindas
+- Texto: _"Acompanhe seu desenvolvimento profissional e evolua suas competências."_
+
+#### 14.9.2 KPI Cards Pessoais
+Exibidos somente quando o colaborador já possui avaliações:
+| Card | Descrição |
+|---|---|
+| **Avaliadas** | Total de competências avaliadas |
+| **Aderência** | `(competências sem GAP / total) × 100` — com cor dinâmica |
+| **Sem GAP** | Quantidade de competências com nível atual ≥ esperado |
+| **Com GAP** | Quantidade de competências com GAP > 0 |
+
+#### 14.9.3 Principais GAPs
+- Lista os **5 maiores GAPs** do colaborador, ordenados por valor decrescente.
+- Cada item exibe: chip com valor do GAP, nome da competência, nível esperado vs. atual, badge de severidade (Crítico para GAP ≥ 2, Atenção para GAP = 1).
+- Orienta o colaborador a acessar a aba **Resumo** em Avaliações para detalhes completos.
+
+#### 14.9.4 Fallback — Sem Avaliações
+- Se o colaborador não possui avaliações, exibe mensagem: _"Seu gestor ainda não realizou sua avaliação de competências."_
+- Ícone de lâmpada (`EmojiObjectsOutlinedIcon`) como ilustração.
+
+#### 14.9.5 Cards de Orientação (Explore o Skillhub)
+Dois cards clicáveis que navegam para as principais funcionalidades:
+| Card | Destino | Descrição |
+|---|---|---|
+| **Avaliações** | `/assessments` | Competências avaliadas, níveis e resumo completo |
+| **Comparação** | `/comparison` | Comparar perfil com outros colaboradores |
+- Cada card possui ícone com gradiente, texto explicativo e botão "Acessar..." com seta.
 
 ---
 

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import {
   Box, Paper, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, LinearProgress,
-  Tooltip, Divider, Skeleton,
+  Tooltip, Divider, Skeleton, Button,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import PeopleIcon from '@mui/icons-material/People'
@@ -14,10 +14,15 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import GroupsIcon from '@mui/icons-material/Groups'
+import EmojiObjectsOutlinedIcon from '@mui/icons-material/EmojiObjectsOutlined'
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useQueries } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { useUsers } from '../hooks/useUsers'
 import { useSkills } from '../hooks/useSkills'
 import { useAuth } from '../hooks/useAuth'
+import { useAssessments } from '../hooks/useAssessments'
 import { assessmentService } from '../services/assessmentService'
 import { BRAND } from '../theme/ThemeProvider'
 
@@ -115,11 +120,32 @@ export default function DashboardPage() {
   const { user }         = useAuth()
   const { data: users }  = useUsers()
   const { data: skills } = useSkills()
+  const navigate = useNavigate()
   const isManager = user?.isManager ?? false
 
   const totalUsers    = users?.length  ?? 0
   const totalSkills   = skills?.length ?? 0
   const totalManagers = users?.filter((u) => u.isManager).length ?? 0
+
+  /* ── Collaborator: fetch own assessments ───────────────── */
+  const { data: myAssessments, isLoading: myLoading } = useAssessments(
+    !isManager && user?.id ? user.id : '',
+  )
+
+  const myStats = useMemo(() => {
+    if (!myAssessments || myAssessments.length === 0)
+      return { total: 0, ok: 0, gap1: 0, gap2plus: 0, aderencia: 0, avgGap: 0, topGaps: [] as NonNullable<typeof myAssessments> }
+    const total = myAssessments.length
+    const ok = myAssessments.filter(a => a.gap <= 0).length
+    const gap1 = myAssessments.filter(a => a.gap === 1).length
+    const gap2plus = myAssessments.filter(a => a.gap >= 2).length
+    const aderencia = Math.round((ok / total) * 100)
+    const avgGap = total > 0
+      ? myAssessments.reduce((s, a) => s + Math.max(a.gap, 0), 0) / total
+      : 0
+    const topGaps = [...myAssessments].filter(a => a.gap > 0).sort((a, b) => b.gap - a.gap).slice(0, 5)
+    return { total, ok, gap1, gap2plus, aderencia, avgGap, topGaps }
+  }, [myAssessments])
 
   /* ── Manager: fetch assessments for all collaborators ────── */
   const collaborators = useMemo(
@@ -226,51 +252,47 @@ export default function DashboardPage() {
           </Box>
         </Typography>
         <Typography variant='body1' color='text.secondary'>
-          {isManager ? 'Painel de gestão — visão geral do time' : 'Visão geral da sua Matriz de Competências'}
+          {isManager
+            ? 'Painel de gestão — visão geral do time'
+            : 'Acompanhe seu desenvolvimento profissional e evolua suas competências.'}
         </Typography>
       </Box>
 
-      {/* Stats */}
-      <Box display='flex' gap={3} flexWrap='wrap' mb={4}>
-        <StatCard
-          label='COLABORADORES'
-          value={totalUsers}
-          icon={<PeopleIcon />}
-          color={BRAND.cyan}
-          gradient={`linear-gradient(135deg, ${BRAND.cyan} 0%, ${BRAND.cyanLight} 100%)`}
-        />
-        <StatCard
-          label='COMPETÊNCIAS'
-          value={totalSkills}
-          icon={<SchoolIcon />}
-          color={BRAND.purple}
-          gradient={`linear-gradient(135deg, ${BRAND.purple} 0%, ${BRAND.purpleLight} 100%)`}
-        />
-        <StatCard
-          label='GESTORES'
-          value={totalManagers}
-          icon={<SupervisorAccountIcon />}
-          color={BRAND.success}
-          gradient={`linear-gradient(135deg, ${BRAND.success} 0%, #69F0AE 100%)`}
-        />
-        {isManager && team ? (
+      {/* ═══ Manager Stat Cards ═══ */}
+      {isManager && (
+        <Box display='flex' gap={3} flexWrap='wrap' mb={4}>
           <StatCard
-            label='ADERÊNCIA GERAL'
-            value={`${team.globalAd}%`}
-            icon={<TrendingUpIcon />}
-            color={adhColor(team.globalAd)}
-            gradient={`linear-gradient(135deg, ${adhColor(team.globalAd)} 0%, ${adhGradEnd(team.globalAd)} 100%)`}
+            label='COLABORADORES'
+            value={totalUsers}
+            icon={<PeopleIcon />}
+            color={BRAND.cyan}
+            gradient={`linear-gradient(135deg, ${BRAND.cyan} 0%, ${BRAND.cyanLight} 100%)`}
           />
-        ) : (
           <StatCard
-            label='TAXA DE AVALIAÇÃO'
-            value={totalUsers > 0 ? Math.round((totalSkills / Math.max(totalUsers, 1)) * 10) : 0}
-            icon={<TrendingUpIcon />}
-            color={BRAND.warning}
-            gradient={`linear-gradient(135deg, ${BRAND.warning} 0%, #FFE082 100%)`}
+            label='COMPETÊNCIAS'
+            value={totalSkills}
+            icon={<SchoolIcon />}
+            color={BRAND.purple}
+            gradient={`linear-gradient(135deg, ${BRAND.purple} 0%, ${BRAND.purpleLight} 100%)`}
           />
-        )}
-      </Box>
+          <StatCard
+            label='GESTORES'
+            value={totalManagers}
+            icon={<SupervisorAccountIcon />}
+            color={BRAND.success}
+            gradient={`linear-gradient(135deg, ${BRAND.success} 0%, #69F0AE 100%)`}
+          />
+          {team && (
+            <StatCard
+              label='ADERÊNCIA GERAL'
+              value={`${team.globalAd}%`}
+              icon={<TrendingUpIcon />}
+              color={adhColor(team.globalAd)}
+              gradient={`linear-gradient(135deg, ${adhColor(team.globalAd)} 0%, ${adhGradEnd(team.globalAd)} 100%)`}
+            />
+          )}
+        </Box>
+      )}
 
       {/* ═══ Manager loading state ═══ */}
       {isManager && someLoading && (
@@ -475,23 +497,174 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Quick info panel (non-managers) */}
+      {/* ═══ Collaborator Dashboard ═══ */}
       {!isManager && (
-        <Paper
-          sx={{
-            p: 3,
-            borderRadius: '16px',
-            bgcolor: 'background.paper',
-            background: `linear-gradient(135deg, ${alpha(BRAND.cyan, 0.04)} 0%, ${alpha(BRAND.purple, 0.04)} 100%)`,
-          }}
-        >
-          <Typography variant='subtitle2' sx={{ color: 'text.secondary', mb: 1.5 }}>
-            RESUMO
+        <>
+          {/* Loading state */}
+          {myLoading && (
+            <Box display='flex' flexDirection='column' gap={2} mb={4}>
+              <Skeleton variant='rounded' height={100} sx={{ borderRadius: '16px' }} />
+              <Skeleton variant='rounded' height={200} sx={{ borderRadius: '16px' }} />
+            </Box>
+          )}
+
+          {/* KPI Cards */}
+          {!myLoading && myAssessments && myAssessments.length > 0 && (
+            <Box display='flex' gap={3} flexWrap='wrap' mb={4}>
+              <StatCard
+                label='AVALIADAS'
+                value={myStats.total}
+                icon={<SchoolIcon />}
+                color={BRAND.purple}
+                gradient={`linear-gradient(135deg, ${BRAND.purple} 0%, ${BRAND.purpleLight} 100%)`}
+              />
+              <StatCard
+                label='ADERÊNCIA'
+                value={`${myStats.aderencia}%`}
+                icon={<TrendingUpIcon />}
+                color={adhColor(myStats.aderencia)}
+                gradient={`linear-gradient(135deg, ${adhColor(myStats.aderencia)} 0%, ${adhGradEnd(myStats.aderencia)} 100%)`}
+              />
+              <StatCard
+                label='SEM GAP'
+                value={myStats.ok}
+                icon={<CheckCircleOutlineIcon />}
+                color={BRAND.success}
+                gradient={`linear-gradient(135deg, ${BRAND.success} 0%, #69F0AE 100%)`}
+              />
+              <StatCard
+                label='COM GAP'
+                value={myStats.gap1 + myStats.gap2plus}
+                icon={<WarningAmberIcon />}
+                color={myStats.gap2plus > 0 ? BRAND.error : BRAND.warning}
+                gradient={myStats.gap2plus > 0
+                  ? `linear-gradient(135deg, ${BRAND.error} 0%, #FF8A80 100%)`
+                  : `linear-gradient(135deg, ${BRAND.warning} 0%, #FFE082 100%)`
+                }
+              />
+            </Box>
+          )}
+
+          {/* Gap Overview */}
+          {!myLoading && myStats.topGaps.length > 0 && (
+            <Paper sx={{ p: 3, borderRadius: '16px', mb: 3 }}>
+              <Typography variant='subtitle1' fontWeight={700} mb={0.5} display='flex' alignItems='center' gap={1}>
+                <ErrorOutlineIcon sx={{ color: BRAND.warning, fontSize: 22 }} />
+                Seus Principais GAPs
+              </Typography>
+              <Typography variant='body2' color='text.secondary' mb={2}>
+                Competências que mais precisam de atenção. Para detalhes completos, acesse a aba <b>Resumo</b> em Avaliações.
+              </Typography>
+
+              <Box display='flex' flexDirection='column' gap={1.5}>
+                {myStats.topGaps.map(a => (
+                  <Box
+                    key={a.skillId}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      p: 1.5,
+                      borderRadius: '12px',
+                      bgcolor: alpha(a.gap >= 2 ? BRAND.error : BRAND.warning, 0.06),
+                    }}
+                  >
+                    <Chip
+                      label={`GAP ${a.gap}`}
+                      size='small'
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        minWidth: 60,
+                        bgcolor: alpha(a.gap >= 2 ? BRAND.error : BRAND.warning, 0.14),
+                        color: a.gap >= 2 ? BRAND.error : BRAND.warning,
+                      }}
+                    />
+                    <Box flex={1}>
+                      <Typography variant='body2' fontWeight={600}>{a.skillName}</Typography>
+                      <Typography variant='caption' color='text.secondary'>
+                        Esperado: {a.expectedLevel} · Atual: {a.currentLevel}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={a.gap >= 2 ? 'Crítico' : 'Atenção'}
+                      size='small'
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: '0.65rem',
+                        height: 22,
+                        bgcolor: alpha(a.gap >= 2 ? BRAND.error : BRAND.warning, 0.12),
+                        color: a.gap >= 2 ? BRAND.error : BRAND.warning,
+                      }}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            </Paper>
+          )}
+
+          {/* No assessments yet fallback */}
+          {!myLoading && (!myAssessments || myAssessments.length === 0) && (
+            <Paper
+              sx={{
+                p: 4, borderRadius: '16px', textAlign: 'center', mb: 3,
+                background: `linear-gradient(135deg, ${alpha(BRAND.cyan, 0.05)} 0%, ${alpha(BRAND.purple, 0.05)} 100%)`,
+              }}
+            >
+              <EmojiObjectsOutlinedIcon sx={{ fontSize: 48, color: BRAND.warning, mb: 1 }} />
+              <Typography variant='h6' fontWeight={700} mb={1}>
+                Nenhuma avaliação encontrada
+              </Typography>
+              <Typography variant='body2' color='text.secondary'>
+                Seu gestor ainda não realizou sua avaliação de competências.
+                Enquanto isso, explore as seções do sistema para se familiarizar.
+              </Typography>
+            </Paper>
+          )}
+
+          {/* Orientation Cards */}
+          <Divider sx={{ my: 3 }} />
+          <Typography variant='subtitle1' fontWeight={700} mb={2} display='flex' alignItems='center' gap={1}>
+            <EmojiObjectsOutlinedIcon sx={{ color: BRAND.warning, fontSize: 22 }} />
+            Explore o Skillhub
           </Typography>
-          <Typography variant='body2' color='text.secondary'>
-            Utilize o menu lateral para acessar suas avaliações de competência e acompanhar seu desenvolvimento.
-          </Typography>
-        </Paper>
+          <Paper
+            sx={{
+              p: 2.5,
+              borderRadius: '16px',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              border: `1px solid transparent`,
+              maxWidth: 480,
+              '&:hover': { borderColor: BRAND.cyan, boxShadow: `0 4px 20px ${alpha(BRAND.cyan, 0.15)}` },
+            }}
+            onClick={() => navigate('/assessments')}
+          >
+            <Box display='flex' alignItems='center' gap={1.5} mb={1}>
+              <Box
+                sx={{
+                  width: 40, height: 40, borderRadius: '12px', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  background: `linear-gradient(135deg, ${BRAND.cyan} 0%, ${BRAND.cyanLight} 100%)`,
+                  color: '#fff',
+                }}
+              >
+                <AssignmentOutlinedIcon fontSize='small' />
+              </Box>
+              <Typography variant='subtitle2' fontWeight={700}>Avaliações</Typography>
+            </Box>
+            <Typography variant='body2' color='text.secondary' mb={1.5}>
+              Veja suas competências avaliadas, níveis esperados vs. atuais, e o resumo completo com indicadores de aderência e GAP.
+            </Typography>
+            <Button
+              size='small'
+              endIcon={<ArrowForwardIcon />}
+              sx={{ textTransform: 'none', fontWeight: 600, color: BRAND.cyan }}
+            >
+              Acessar Avaliações
+            </Button>
+          </Paper>
+        </>
       )}
     </Box>
   )
