@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CompetencyMatrix.API/CompetencyMatrix.API.csproj" />
+    <Project Path="src/CompetencyMatrix.Application/CompetencyMatrix.Application.csproj" />
+    <Project Path="src/CompetencyMatrix.Domain/CompetencyMatrix.Domain.csproj" />
+    <Project Path="src/CompetencyMatrix.Infrastructure/CompetencyMatrix.Infrastructure.csproj" />
+  </Folder>
+</Solution>

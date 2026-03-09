@@ -1,0 +1,17 @@
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\obj\Debug\net8.0\CompetencyMatrix.Infrastructure.csproj.AssemblyReference.cache
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\obj\Debug\net8.0\CompetencyMatrix.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\obj\Debug\net8.0\CompetencyMatrix.Infrastructure.AssemblyInfoInputs.cache
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\obj\Debug\net8.0\CompetencyMatrix.Infrastructure.AssemblyInfo.cs
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\obj\Debug\net8.0\CompetencyMatrix.Infrastructure.csproj.CoreCompileInputs.cache
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\bin\Debug\net8.0\CompetencyMatrix.Infrastructure.deps.json
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\bin\Debug\net8.0\CompetencyMatrix.Infrastructure.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\bin\Debug\net8.0\CompetencyMatrix.Infrastructure.pdb
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\bin\Debug\net8.0\CompetencyMatrix.Application.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\bin\Debug\net8.0\CompetencyMatrix.Domain.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\bin\Debug\net8.0\CompetencyMatrix.Domain.pdb
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\bin\Debug\net8.0\CompetencyMatrix.Application.pdb
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\obj\Debug\net8.0\Competen.029FC678.Up2Date
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\obj\Debug\net8.0\CompetencyMatrix.Infrastructure.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\obj\Debug\net8.0\refint\CompetencyMatrix.Infrastructure.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\obj\Debug\net8.0\CompetencyMatrix.Infrastructure.pdb
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Infrastructure\obj\Debug\net8.0\ref\CompetencyMatrix.Infrastructure.dll

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "W9350NaGMrE=",
+  "success": true,
+  "projectFilePath": "C:\\JuniorSturm\\matriz-competencia\\backend\\src\\CompetencyMatrix.Domain\\CompetencyMatrix.Domain.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\junior.sturm\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.24\\microsoft.netcore.app.ref.8.0.24.nupkg.sha512",
+    "C:\\Users\\junior.sturm\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.24\\microsoft.windowsdesktop.app.ref.8.0.24.nupkg.sha512",
+    "C:\\Users\\junior.sturm\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.24\\microsoft.aspnetcore.app.ref.8.0.24.nupkg.sha512"
+  ],
+  "logs": []
+}

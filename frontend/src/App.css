@@ -1,0 +1,24 @@
+/* ── App-Level Styles ──────────────────────────────────────────────────── */
+
+/* Fade-in animation for page transitions */
+@keyframes appFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.app-page-enter {
+  animation: appFadeIn 0.3s ease-out;
+}
+
+/* Glow accent for key interactive elements */
+.app-glow {
+  box-shadow: 0 0 20px rgba(0, 184, 212, 0.15);
+}
+
+/* Gradient text helper */
+.app-gradient-text {
+  background: linear-gradient(135deg, #00B8D4 0%, #7C4DFF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

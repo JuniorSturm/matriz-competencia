@@ -1,0 +1,36 @@
+/* ── Global Styles ──────────────────────────────────────────────────────── */
+
+:root {
+  font-family: 'Inter', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+/* Links */
+a { color: #00B8D4; text-decoration: none; font-weight: 500; }
+a:hover { color: #0088A3; }
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid #00B8D4;
+  outline-offset: 2px;
+}

@@ -1,0 +1,11 @@
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\bin\Release\net8.0\CompetencyMatrix.Domain.deps.json
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\bin\Release\net8.0\CompetencyMatrix.Domain.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\bin\Release\net8.0\CompetencyMatrix.Domain.pdb
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\obj\Release\net8.0\CompetencyMatrix.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\obj\Release\net8.0\CompetencyMatrix.Domain.AssemblyInfoInputs.cache
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\obj\Release\net8.0\CompetencyMatrix.Domain.AssemblyInfo.cs
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\obj\Release\net8.0\CompetencyMatrix.Domain.csproj.CoreCompileInputs.cache
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\obj\Release\net8.0\CompetencyMatrix.Domain.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\obj\Release\net8.0\refint\CompetencyMatrix.Domain.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\obj\Release\net8.0\CompetencyMatrix.Domain.pdb
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Domain\obj\Release\net8.0\ref\CompetencyMatrix.Domain.dll

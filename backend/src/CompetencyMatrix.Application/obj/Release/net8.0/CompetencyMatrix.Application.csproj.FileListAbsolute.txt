@@ -1,0 +1,15 @@
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\bin\Release\net8.0\CompetencyMatrix.Application.deps.json
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\bin\Release\net8.0\CompetencyMatrix.Application.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\bin\Release\net8.0\CompetencyMatrix.Application.pdb
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\bin\Release\net8.0\CompetencyMatrix.Domain.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\bin\Release\net8.0\CompetencyMatrix.Domain.pdb
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\obj\Release\net8.0\CompetencyMatrix.Application.csproj.AssemblyReference.cache
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\obj\Release\net8.0\CompetencyMatrix.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\obj\Release\net8.0\CompetencyMatrix.Application.AssemblyInfoInputs.cache
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\obj\Release\net8.0\CompetencyMatrix.Application.AssemblyInfo.cs
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\obj\Release\net8.0\CompetencyMatrix.Application.csproj.CoreCompileInputs.cache
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\obj\Release\net8.0\Competen.4670C5FA.Up2Date
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\obj\Release\net8.0\CompetencyMatrix.Application.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\obj\Release\net8.0\refint\CompetencyMatrix.Application.dll
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\obj\Release\net8.0\CompetencyMatrix.Application.pdb
+C:\JuniorSturm\matriz-competencia\backend\src\CompetencyMatrix.Application\obj\Release\net8.0\ref\CompetencyMatrix.Application.dll
