@@ -12,6 +12,7 @@ import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import { useSkills, useDeleteSkill } from '../hooks/useSkills'
 import { BRAND } from '../theme/ThemeProvider'
+import PageHeader from '../components/PageHeader'
 
 export default function SkillsPage() {
   const navigate = useNavigate()
@@ -35,30 +36,31 @@ export default function SkillsPage() {
   if (error) return <Alert severity='error'>Erro ao carregar competências.</Alert>
 
   return (
-    <Box>
-      <Box display='flex' justifyContent='space-between' alignItems='center' mb={3}>
-        <Box>
-          <Typography variant='h5' fontWeight={700}>Competências</Typography>
-          <Typography variant='body2' color='text.secondary'>
-            {filteredSkills.length} registro{filteredSkills.length !== 1 ? 's' : ''}
-          </Typography>
-        </Box>
-        <Button
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', pr: 3 }}>
+      <PageHeader>
+        <Box display='flex' justifyContent='space-between' alignItems='center'>
+          <Box>
+            <Typography variant='h5' fontWeight={700}>Competências</Typography>
+            <Typography variant='body2' color='text.secondary'>
+              {filteredSkills.length} registro{filteredSkills.length !== 1 ? 's' : ''}
+            </Typography>
+          </Box>
+          <Button
           startIcon={<AddIcon />}
           variant='contained'
           onClick={() => navigate('/skills/new')}
-          sx={{ borderRadius: '12px' }}
         >
           Nova Competência
         </Button>
-      </Box>
+        </Box>
+      </PageHeader>
 
       <TextField
         placeholder='Buscar por nome...'
         size='small'
         value={nameFilter}
         onChange={(e) => setNameFilter(e.target.value)}
-        sx={{ mb: 3, minWidth: 320 }}
+        sx={{ mb: 2, mt: 2, minWidth: 320, flexShrink: 0 }}
         InputProps={{
           startAdornment: (
             <InputAdornment position='start'>
@@ -70,9 +72,15 @@ export default function SkillsPage() {
 
       <TableContainer
         component={Paper}
-        sx={{ borderRadius: '16px' }}
+        sx={{
+          borderRadius: '16px',
+          flex: 1,
+          minHeight: 0,
+          overflow: 'auto',
+          display: 'block',
+        }}
       >
-        <Table size='small'>
+        <Table size='small' stickyHeader>
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>

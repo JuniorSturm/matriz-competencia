@@ -10,6 +10,8 @@ import SchoolIcon from '@mui/icons-material/School'
 import AssessmentIcon from '@mui/icons-material/Assessment'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import LogoutIcon from '@mui/icons-material/Logout'
+import BusinessIcon from '@mui/icons-material/Business'
+import GroupsIcon from '@mui/icons-material/Groups'
 
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
@@ -20,11 +22,13 @@ import { BRAND, useThemeMode } from '../theme/ThemeProvider'
 const DRAWER_WIDTH = 260
 
 const NAV_ITEMS = [
-  { label: 'Dashboard',     icon: <DashboardIcon />,      path: '/',            managerOnly: false },
-  { label: 'Colaboradores', icon: <PeopleIcon />,          path: '/users',       managerOnly: true  },
-  { label: 'Competências',  icon: <SchoolIcon />,          path: '/skills',      managerOnly: true  },
-  { label: 'Avaliações',    icon: <AssessmentIcon />,      path: '/assessments', managerOnly: false },
-  { label: 'Comparação',    icon: <CompareArrowsIcon />,   path: '/comparison',  managerOnly: true  },
+  { label: 'Dashboard',     icon: <DashboardIcon />,      path: '/',            managerOnly: false, adminOnly: false, coordinatorOk: true },
+  { label: 'Empresas',      icon: <BusinessIcon />,       path: '/companies',   managerOnly: false, adminOnly: true,  coordinatorOk: false },
+  { label: 'Colaboradores', icon: <PeopleIcon />,         path: '/users',       managerOnly: true,  adminOnly: false, coordinatorOk: true },
+  { label: 'Competências',  icon: <SchoolIcon />,         path: '/skills',      managerOnly: true,  adminOnly: false, coordinatorOk: true },
+  { label: 'Times',         icon: <GroupsIcon />,         path: '/teams',       managerOnly: true,  adminOnly: false, coordinatorOk: true },
+  { label: 'Avaliações',    icon: <AssessmentIcon />,     path: '/assessments', managerOnly: false, adminOnly: false, coordinatorOk: true },
+  { label: 'Comparação',    icon: <CompareArrowsIcon />,  path: '/comparison',  managerOnly: true,  adminOnly: false, coordinatorOk: true },
 ]
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -38,7 +42,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     : '?'
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
       {/* ── Sidebar ──────────────────────────────────── */}
       <Drawer
         variant='permanent'
@@ -105,7 +109,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             NAVEGAÇÃO
           </Typography>
           <List disablePadding>
-            {NAV_ITEMS.filter((item) => !item.managerOnly || user?.isManager).map((item) => {
+            {NAV_ITEMS.filter((item) => {
+              if (item.adminOnly) return user?.isAdmin
+              if (item.managerOnly) return user?.isManager || user?.isAdmin || (item.coordinatorOk && user?.isCoordinator)
+              return true
+            }).map((item) => {
               const active = location.pathname === item.path
               return (
                 <ListItem key={item.path} disablePadding sx={{ mb: 0.3 }}>
@@ -201,7 +209,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               {user?.name}
             </Typography>
             <Typography variant='caption' sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
-              {user?.isManager ? 'Gestor' : 'Colaborador'}
+              {user?.isAdmin ? 'Administrador' : user?.isManager ? 'Gestor' : user?.isCoordinator ? 'Coordenador' : 'Colaborador'}
             </Typography>
           </Box>
           <Tooltip title='Sair' arrow>
@@ -221,13 +229,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         component='main'
         sx={{
           flexGrow: 1,
+          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '100vh',
+          overflow: 'hidden',
+          pb: 3,
+          pt: 0,
         }}
       >
-        <Box sx={{ flex: 1, p: 3 }}>
-          {children}
+        <Box sx={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'auto', overflowX: 'hidden' }}>
+          <Box sx={{ pl: 3, pr: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            {children}
+          </Box>
         </Box>
       </Box>
     </Box>

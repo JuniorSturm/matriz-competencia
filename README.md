@@ -25,8 +25,12 @@ Acesse:
 - **Frontend:** http://localhost:3000
 - **API:**      http://localhost:5000
 
-Login padrão:
+Login padrão Administrador:
 - **E-mail:** admin@empresa.com
+- **Senha:**  Admin@123
+
+Login padrão Gestor:
+- **E-mail:** gestor@empresa.com
 - **Senha:**  Admin@123
 
 ---

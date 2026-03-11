@@ -20,6 +20,8 @@ builder.Services.AddScoped<IUserRepository,       UserRepository>();
 builder.Services.AddScoped<ISkillRepository,      SkillRepository>();
 builder.Services.AddScoped<IAssessmentRepository, AssessmentRepository>();
 builder.Services.AddScoped<IRoleGradeRepository,  RoleGradeRepository>();
+builder.Services.AddScoped<ICompanyRepository,    CompanyRepository>();
+builder.Services.AddScoped<ITeamRepository,     TeamRepository>();
 
 // ─── Services ─────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService,       AuthService>();
@@ -27,6 +29,8 @@ builder.Services.AddScoped<IUserService,       UserService>();
 builder.Services.AddScoped<ISkillService,      SkillService>();
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IRoleGradeService,  RoleGradeService>();
+builder.Services.AddScoped<ICompanyService,    CompanyService>();
+builder.Services.AddScoped<ITeamService,       TeamService>();
 builder.Services.AddSingleton<IJwtService,     JwtService>();
 
 // ─── JWT ──────────────────────────────────────────────────────────────────────
@@ -54,7 +58,7 @@ builder.Services.AddControllers();
 
 // ─── CORS (permitir frontend em dev) ─────────────────────────────────────────
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.WithOrigins("http://localhost:5173", "http://localhost:3000")
+    p.WithOrigins("http://localhost:5173", "http://localhost:5175", "http://localhost:3000")
      .AllowAnyMethod()
      .AllowAnyHeader()
 ));

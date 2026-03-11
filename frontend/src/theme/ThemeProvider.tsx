@@ -127,26 +127,37 @@ function buildTheme(mode: ThemeMode) {
         },
       },
 
-      /* ── Button ────── */
+      /* ── Button ────── (estilo compatível com modo claro e escuro) */
       MuiButton: {
         defaultProps: { disableElevation: true },
         styleOverrides: {
-          root: { borderRadius: 10, padding: '8px 20px', fontSize: '0.875rem' },
-          containedPrimary: {
-            background: `linear-gradient(135deg, ${BRAND.cyan} 0%, ${BRAND.cyanDark} 100%)`,
-            color: '#fff',
-            fontWeight: 700,
-            '&:hover': {
-              background: `linear-gradient(135deg, ${BRAND.cyanLight} 0%, ${BRAND.cyan} 100%)`,
-            },
-          },
-          containedSecondary: {
-            background: `linear-gradient(135deg, ${BRAND.purple} 0%, ${BRAND.purpleDark} 100%)`,
-            color: '#fff',
-            '&:hover': {
-              background: `linear-gradient(135deg, ${BRAND.purpleLight} 0%, ${BRAND.purple} 100%)`,
-            },
-          },
+          root: { borderRadius: 8, padding: '8px 18px', fontSize: '0.875rem' },
+          containedPrimary: isDark
+            ? {
+                backgroundColor: '#14B8A6',
+                color: '#fff',
+                fontWeight: 600,
+                '&:hover': { backgroundColor: '#0D9488' },
+              }
+            : {
+                backgroundColor: '#0D9488',
+                color: '#fff',
+                fontWeight: 600,
+                '&:hover': { backgroundColor: '#0F766E' },
+              },
+          containedSecondary: isDark
+            ? {
+                backgroundColor: '#7C3AED',
+                color: '#fff',
+                fontWeight: 600,
+                '&:hover': { backgroundColor: '#6D28D9' },
+              }
+            : {
+                backgroundColor: '#6D28D9',
+                color: '#fff',
+                fontWeight: 600,
+                '&:hover': { backgroundColor: '#5B21B6' },
+              },
           outlinedPrimary: {
             borderColor: alpha(BRAND.cyan, 0.5),
             color: BRAND.cyan,

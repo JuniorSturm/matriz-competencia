@@ -10,9 +10,12 @@ import type {
 } from '../types'
 
 export const skillService = {
-  getAll: async (roleId?: number): Promise<SkillResponse[]> => {
+  getAll: async (roleId?: number, companyId?: number): Promise<SkillResponse[]> => {
+    const params: Record<string, number> = {}
+    if (roleId) params.roleId = roleId
+    if (companyId) params.companyId = companyId
     const res = await api.get<SkillResponse[]>('/skills', {
-      params: roleId ? { roleId } : undefined,
+      params: Object.keys(params).length > 0 ? params : undefined,
     })
     return res.data
   },

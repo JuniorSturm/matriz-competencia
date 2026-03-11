@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { memo, useCallback, useDeferredValue, useMemo, useState } from 'react'
 import {
   Alert, Box, CircularProgress, Drawer, FormControl, IconButton, InputLabel,
   MenuItem, Paper, Select, Skeleton, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography, Chip, Tab, Tabs,
-  LinearProgress, Divider, Tooltip,
+  LinearProgress, Tooltip,
 } from '@mui/material'
-import { alpha } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import CloseIcon from '@mui/icons-material/Close'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
@@ -14,10 +14,11 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import { useUsers } from '../hooks/useUsers'
 import { useAssessments, useUpsertAssessment } from '../hooks/useAssessments'
 import { useSkills, useSkillDescriptions } from '../hooks/useSkills'
-import type { CompetencyLevel } from '../types'
+import type { AssessmentResponse, CompetencyLevel } from '../types'
 import { LEVELS } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { BRAND } from '../theme/ThemeProvider'
+import PageHeader from '../components/PageHeader'
 
 /* ── Tooltip helper ─────────────────────────────────────────── */
 const InfoTip = ({ title }: { title: string }) => (
@@ -45,14 +46,104 @@ const LEVEL_CHIP_COLORS: Record<string, string> = {
 
 const LEVEL_ORDER = ['BRONZE', 'PRATA', 'OURO'] as const
 
+/* ── Memoized table row ─────────────────────────────────────── */
+interface AssessmentRowProps {
+  a: AssessmentResponse
+  category: string
+  canAssess: boolean
+  onLevelChange: (skillId: number, level: CompetencyLevel) => void
+  onOpenDetails: (skillId: number) => void
+}
+
+const categoryChipSx = {
+  bgcolor: alpha(BRAND.purple, 0.12),
+  color: BRAND.purpleLight,
+  fontWeight: 600,
+  fontSize: '0.7rem',
+} as const
+
+const expectedChipSx = {
+  bgcolor: alpha(BRAND.cyan, 0.12),
+  color: BRAND.cyan,
+  fontWeight: 600,
+} as const
+
+const AssessmentRow = memo(function AssessmentRow({ a, category, canAssess, onLevelChange, onOpenDetails }: AssessmentRowProps) {
+  return (
+    <TableRow>
+      <TableCell>
+        <Typography variant='body2' fontWeight={600}>{a.skillName}</Typography>
+      </TableCell>
+      <TableCell>
+        <Chip label={category} size='small' sx={categoryChipSx} />
+      </TableCell>
+      <TableCell>
+        <Chip label={a.expectedLevel} size='small' sx={expectedChipSx} />
+      </TableCell>
+      <TableCell>
+        {canAssess ? (
+          <NativeLevelSelect value={a.currentLevel} onChange={(lvl) => onLevelChange(a.skillId, lvl)} />
+        ) : (
+          <Chip label={a.currentLevel} size='small' />
+        )}
+      </TableCell>
+      <TableCell>
+        <Chip
+          label={a.gap === 0 ? 'OK' : `${a.gap > 0 ? '+' : ''}${a.gap}`}
+          size='small'
+          color={GAP_COLOR(a.gap) as 'success' | 'warning' | 'error'}
+        />
+      </TableCell>
+      <TableCell align='center'>
+        <IconButton size='small' onClick={() => onOpenDetails(a.skillId)} sx={{ color: BRAND.cyan }}>
+          <InfoOutlinedIcon fontSize='small' />
+        </IconButton>
+      </TableCell>
+    </TableRow>
+  )
+})
+
+function NativeLevelSelect({ value, onChange }: { value: string; onChange: (v: CompetencyLevel) => void }) {
+  const theme = useTheme()
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as CompetencyLevel)}
+      style={{
+        minWidth: 120,
+        padding: '6px 10px',
+        borderRadius: 8,
+        border: `1px solid ${theme.palette.divider}`,
+        backgroundColor: theme.palette.background.paper,
+        color: theme.palette.text.primary,
+        fontSize: '0.875rem',
+        cursor: 'pointer',
+        outline: 'none',
+      }}
+    >
+      {LEVELS.map((l) => (
+        <option key={l} value={l}>{l}</option>
+      ))}
+    </select>
+  )
+}
+
 export default function AssessmentsPage() {
   const { user: authUser } = useAuth()
+  const canAssess = !!(authUser?.isManager || authUser?.isCoordinator || authUser?.isAdmin)
   const { data: users }    = useUsers()
   const { data: skills }   = useSkills()
-  const [selectedUserId, setSelectedUserId] = useState<string>(authUser?.isManager ? '' : (authUser?.id ?? ''))
-  const { data: assessments, isLoading, error } = useAssessments(selectedUserId)
+  const [selectedUserId, setSelectedUserId] = useState<string>(canAssess ? '' : (authUser?.id ?? ''))
+  const deferredUserId = useDeferredValue(selectedUserId)
+  const isPending = deferredUserId !== selectedUserId
+  const { data: assessments, isLoading, error } = useAssessments(deferredUserId)
   const upsertMutation = useUpsertAssessment()
   const [tabIndex, setTabIndex] = useState(0)
+
+  const userOptions = useMemo(
+    () => users?.filter((u) => !u.isManager && !u.isAdmin && !u.isCoordinator) ?? [],
+    [users],
+  )
 
   /* ── Flyout state ─────────────────────────────────────────────── */
   const [drawerSkillId, setDrawerSkillId] = useState<number | null>(null)
@@ -60,8 +151,8 @@ export default function AssessmentsPage() {
   const { data: descriptions, isLoading: descLoading } = useSkillDescriptions(drawerSkillId)
 
   const selectedUser = useMemo(
-    () => users?.find((u) => u.id === selectedUserId) ?? null,
-    [users, selectedUserId],
+    () => users?.find((u) => u.id === deferredUserId) ?? null,
+    [users, deferredUserId],
   )
 
   const drawerDescriptions = useMemo(() => {
@@ -121,22 +212,29 @@ export default function AssessmentsPage() {
     return { total, byCat, levelDist, gapOk, gap1, gap2plus, gapNeg, avgGap, aderencia }
   }, [assessments, categoryMap])
 
-  const handleLevelChange = async (skillId: number, level: CompetencyLevel) => {
-    if (!selectedUserId) return
-    await upsertMutation.mutateAsync({ userId: selectedUserId, skillId, currentLevel: level })
-  }
+  const handleLevelChange = useCallback(async (skillId: number, level: CompetencyLevel) => {
+    if (!deferredUserId) return
+    await upsertMutation.mutateAsync({ userId: deferredUserId, skillId, currentLevel: level })
+  }, [deferredUserId, upsertMutation])
+
+  const handleOpenDetails = useCallback((skillId: number) => {
+    setDrawerSkillId(skillId)
+  }, [])
 
   return (
-    <Box>
-      <Box mb={3}>
-        <Typography variant='h5' fontWeight={700}>Avaliação de Competências</Typography>
-        <Typography variant='body2' color='text.secondary'>
-          Avalie o nível atual de cada competência
-        </Typography>
-      </Box>
+    <Box sx={{ minWidth: 0, overflowX: 'hidden', pr: 3, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <PageHeader>
+        <Box mb={0}>
+          <Typography variant='h5' fontWeight={700}>Avaliação de Competências</Typography>
+          <Typography variant='body2' color='text.secondary'>
+            Avalie o nível atual de cada competência
+          </Typography>
+        </Box>
+      </PageHeader>
 
-      {authUser?.isManager && (
-        <FormControl sx={{ mb: 3, minWidth: 300 }}>
+      <Box sx={{ flexShrink: 0, mt: 1 }}>
+      {canAssess && (
+        <FormControl sx={{ mb: 2, minWidth: 300 }}>
           <InputLabel>Colaborador</InputLabel>
           <Select
             label='Colaborador'
@@ -144,117 +242,99 @@ export default function AssessmentsPage() {
             onChange={(e) => setSelectedUserId(e.target.value)}
           >
             <MenuItem value=''>Selecione...</MenuItem>
-            {users?.filter((u) => !u.isManager).map((u) => (
+            {userOptions.map((u) => (
               <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>
             ))}
           </Select>
         </FormControl>
       )}
 
-      {isLoading && <Box display='flex' justifyContent='center' py={6}><CircularProgress /></Box>}
-      {error && <Alert severity='error'>Erro ao carregar avaliações.</Alert>}
+      {(isLoading || isPending) && <Box display='flex' justifyContent='center' py={6}><CircularProgress /></Box>}
+      {error && !assessments && <Alert severity='error'>Erro ao carregar avaliações.</Alert>}
+      </Box>
 
-      {assessments && assessments.length > 0 && (
-        <>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+      {!isPending && assessments && assessments.length > 0 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
             <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)}>
               <Tab label='Avaliações' />
               <Tab label='Resumo' />
             </Tabs>
           </Box>
 
-          {/* ── TAB 0: Grid ────────────────────────────────────────── */}
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', mt: 2, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* ── TAB 0: Grid (scroll só dentro do grid, cabeçalho fixo) ── */}
           {tabIndex === 0 && (
-            <TableContainer
-              component={Paper}
-              sx={{ borderRadius: '16px' }}
+            <Paper
+              sx={{
+                borderRadius: '16px',
+                flex: 1,
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                minWidth: 0,
+              }}
             >
-          <Table size='small'>
-            <TableHead>
-              <TableRow>
-                <TableCell>Competência</TableCell>
-                <TableCell>Categoria</TableCell>
-                <TableCell>Cargo</TableCell>
-                <TableCell>Esperado</TableCell>
-                <TableCell>Atual</TableCell>
-                <TableCell>GAP</TableCell>
-                <TableCell align='center'>Detalhes</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {assessments.map((a) => (
-                <TableRow key={a.skillId}>
-                  <TableCell>
-                    <Typography variant='body2' fontWeight={600}>{a.skillName}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={categoryMap[a.skillId] ?? '—'}
-                      size='small'
-                      sx={{
-                        bgcolor: alpha(BRAND.purple, 0.12),
-                        color: BRAND.purpleLight,
-                        fontWeight: 600,
-                        fontSize: '0.7rem',
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant='body2' color='text.secondary'>{a.roleName ?? '—'}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={a.expectedLevel}
-                      size='small'
-                      sx={{
-                        bgcolor: alpha(BRAND.cyan, 0.12),
-                        color: BRAND.cyan,
-                        fontWeight: 600,
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {authUser?.isManager ? (
-                      <Select
-                        size='small'
-                        value={a.currentLevel}
-                        onChange={(e) => handleLevelChange(a.skillId, e.target.value as CompetencyLevel)}
-                        sx={{ minWidth: 120 }}
-                      >
-                        {LEVELS.map((l) => (
-                          <MenuItem key={l} value={l}>{l}</MenuItem>
-                        ))}
-                      </Select>
-                    ) : (
-                      <Chip label={a.currentLevel} size='small' />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={a.gap === 0 ? 'OK' : `${a.gap > 0 ? '+' : ''}${a.gap}`}
-                      size='small'
-                      color={GAP_COLOR(a.gap) as 'success' | 'warning' | 'error'}
-                    />
-                  </TableCell>
-                  <TableCell align='center'>
-                    <IconButton
-                      size='small'
-                      onClick={() => setDrawerSkillId(a.skillId)}
-                      sx={{ color: BRAND.cyan }}
-                    >
-                      <InfoOutlinedIcon fontSize='small' />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              <TableContainer
+                sx={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflow: 'auto',
+                  display: 'block',
+                }}
+              >
+                <Table size='small' stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Competência</TableCell>
+                      <TableCell>Categoria</TableCell>
+                      <TableCell>Esperado</TableCell>
+                      <TableCell>Atual</TableCell>
+                      <TableCell>GAP</TableCell>
+                      <TableCell align='center'>Detalhes</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {assessments.map((a) => (
+                      <AssessmentRow
+                        key={a.skillId}
+                        a={a}
+                        category={categoryMap[a.skillId] ?? '—'}
+                        canAssess={canAssess}
+                        onLevelChange={handleLevelChange}
+                        onOpenDetails={handleOpenDetails}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
           )}
 
-          {/* ── TAB 1: Resumo ──────────────────────────────────────── */}
-          {tabIndex === 1 && summary && (
+          {/* ── TAB 1: Resumo (scroll no conteúdo da aba) ───────────────── */}
+          {tabIndex === 1 && summary && selectedUser && (
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', minWidth: 0 }}>
             <Box display='flex' flexDirection='column' gap={3}>
+              {/* Cargo e Nível do colaborador */}
+              <Paper sx={{ p: 2, borderRadius: '16px', bgcolor: alpha(BRAND.cyan, 0.06), border: `1px solid ${alpha(BRAND.cyan, 0.2)}` }}>
+                <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 1 }}>
+                  Perfil do colaborador
+                </Typography>
+                <Box display='flex' flexWrap='wrap' gap={2} alignItems='center'>
+                  <Chip
+                    label={selectedUser.roleName ?? '—'}
+                    size='medium'
+                    sx={{ fontWeight: 600, bgcolor: alpha(BRAND.purple, 0.12), color: BRAND.purple }}
+                  />
+                  <Chip
+                    label={selectedUser.gradeName ?? '—'}
+                    size='medium'
+                    sx={{ fontWeight: 600, bgcolor: alpha(BRAND.cyan, 0.12), color: BRAND.cyan }}
+                  />
+                </Box>
+              </Paper>
+
               {/* KPI Cards */}
               <Box display='grid' gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }} gap={2}>
                 <Paper sx={{ p: 2.5, borderRadius: '16px', textAlign: 'center' }}>
@@ -479,13 +559,15 @@ export default function AssessmentsPage() {
                 )
               })()}
             </Box>
+            </Box>
           )}
-        </>
+          </Box>
+        </Box>
       )}
 
-      {assessments && assessments.length === 0 && selectedUserId && (
-        <Alert severity='info' sx={{ borderRadius: '12px' }}>
-          Nenhuma competência encontrada para este colaborador.
+      {!isPending && assessments && assessments.length === 0 && deferredUserId && (
+        <Alert severity='info' sx={{ borderRadius: '12px', mt: 2 }}>
+          Nenhuma competência encontrada para este colaborador. Verifique se o colaborador pertence a um time e se o time possui competências vinculadas.
         </Alert>
       )}
 

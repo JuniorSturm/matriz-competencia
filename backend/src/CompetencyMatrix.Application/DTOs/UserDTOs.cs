@@ -6,14 +6,18 @@ public record CreateUserRequest(
     string Password,
     int?   RoleId,
     int?   GradeId,
-    bool   IsManager
+    bool   IsManager,
+    bool   IsCoordinator = false,
+    int?   CompanyId = null
 );
 
 public record UpdateUserRequest(
     string Name,
     int?   RoleId,
     int?   GradeId,
-    bool   IsManager
+    bool   IsManager,
+    bool   IsCoordinator = false,
+    int?   CompanyId = null
 );
 
 public record ResetPasswordRequest(
@@ -29,5 +33,9 @@ public record UserResponse(
     int?    GradeId,
     string? GradeName,
     bool    IsManager,
+    bool    IsAdmin,
+    bool    IsCoordinator,
+    int?    CompanyId,
+    string? CompanyName,
     DateTime CreatedAt
 );

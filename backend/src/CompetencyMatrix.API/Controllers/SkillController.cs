@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -11,14 +12,43 @@ namespace CompetencyMatrix.API.Controllers;
 public class SkillController : ControllerBase
 {
     private readonly ISkillService _service;
+    private readonly IUserService  _userService;
 
-    public SkillController(ISkillService service) => _service = service;
+    public SkillController(ISkillService service, IUserService userService)
+    {
+        _service     = service;
+        _userService = userService;
+    }
+
+    private static Guid? GetCurrentUserId(ClaimsPrincipal user)
+    {
+        var sub = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        return Guid.TryParse(sub, out var id) ? id : null;
+    }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int? roleId)
+    public async Task<IActionResult> GetAll([FromQuery] int? roleId, [FromQuery] int? companyId)
     {
         if (roleId.HasValue)
             return Ok(await _service.GetByRoleAsync(roleId.Value));
+
+        var currentUserId = GetCurrentUserId(User);
+        var role = User.FindFirstValue(ClaimTypes.Role);
+
+        if (role == "ADMIN")
+        {
+            if (companyId.HasValue)
+                return Ok(await _service.GetAllByCompanyAsync(companyId.Value));
+            return Ok(await _service.GetAllAsync());
+        }
+
+        if (currentUserId.HasValue)
+        {
+            var currentUser = await _userService.GetByIdAsync(currentUserId.Value);
+            if (currentUser?.CompanyId != null)
+                return Ok(await _service.GetAllByCompanyAsync(currentUser.CompanyId.Value));
+        }
+
         return Ok(await _service.GetAllAsync());
     }
 
@@ -30,15 +60,29 @@ public class SkillController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "MANAGER")]
+    [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
     public async Task<IActionResult> Create([FromBody] CreateSkillRequest request)
     {
-        var id = await _service.CreateAsync(request);
+        var currentUserId = GetCurrentUserId(User);
+        var role = User.FindFirstValue(ClaimTypes.Role);
+
+        var finalRequest = request;
+        if (role != "ADMIN" && currentUserId.HasValue)
+        {
+            var currentUser = await _userService.GetByIdAsync(currentUserId.Value);
+            if (currentUser?.CompanyId != null)
+                finalRequest = request with { CompanyId = currentUser.CompanyId.Value };
+        }
+
+        if (!finalRequest.CompanyId.HasValue || finalRequest.CompanyId == 0)
+            return BadRequest(new { message = "Empresa é obrigatória." });
+
+        var id = await _service.CreateAsync(finalRequest);
         return CreatedAtAction(nameof(GetById), new { id }, new { id });
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "MANAGER")]
+    [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateSkillRequest request)
     {
         await _service.UpdateAsync(id, request);
@@ -46,7 +90,7 @@ public class SkillController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "MANAGER")]
+    [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
     public async Task<IActionResult> Delete(int id)
     {
         await _service.DeleteAsync(id);
@@ -54,7 +98,7 @@ public class SkillController : ControllerBase
     }
 
     [HttpPost("expectations")]
-    [Authorize(Roles = "MANAGER")]
+    [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
     public async Task<IActionResult> UpsertExpectation([FromBody] UpsertExpectationRequest request)
     {
         await _service.UpsertExpectationAsync(request);
@@ -69,7 +113,7 @@ public class SkillController : ControllerBase
     }
 
     [HttpDelete("{skillId:int}/expectations")]
-    [Authorize(Roles = "MANAGER")]
+    [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
     public async Task<IActionResult> DeleteExpectation(int skillId, [FromQuery] int roleId, [FromQuery] int gradeId)
     {
         await _service.DeleteExpectationAsync(skillId, roleId, gradeId);
@@ -84,7 +128,7 @@ public class SkillController : ControllerBase
     }
 
     [HttpPost("descriptions")]
-    [Authorize(Roles = "MANAGER")]
+    [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
     public async Task<IActionResult> UpsertDescription([FromBody] UpsertDescriptionRequest request)
     {
         await _service.UpsertDescriptionAsync(request);

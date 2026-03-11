@@ -15,17 +15,18 @@ public class UserRepository : IUserRepository
     {
         using var conn = _ctx.CreateConnection();
         const string sql = @"
-            SELECT u.*, r.id, r.name, g.id, g.name
+            SELECT u.*, r.id, r.name, g.id, g.name, c.id, c.name
             FROM users u
-            LEFT JOIN roles  r ON r.id = u.role_id
-            LEFT JOIN grades g ON g.id = u.grade_id
+            LEFT JOIN roles     r ON r.id = u.role_id
+            LEFT JOIN grades    g ON g.id = u.grade_id
+            LEFT JOIN companies c ON c.id = u.company_id
             WHERE u.id = @id";
 
-        var result = await conn.QueryAsync<User, Role, Grade, User>(
+        var result = await conn.QueryAsync<User, Role, Grade, Company, User>(
             sql,
-            (user, role, grade) => { user.Role = role; user.Grade = grade; return user; },
+            (user, role, grade, company) => { user.Role = role; user.Grade = grade; user.Company = company; return user; },
             new { id },
-            splitOn: "id,id"
+            splitOn: "id,id,id"
         );
         return result.FirstOrDefault();
     }
@@ -34,17 +35,18 @@ public class UserRepository : IUserRepository
     {
         using var conn = _ctx.CreateConnection();
         const string sql = @"
-            SELECT u.*, r.id, r.name, g.id, g.name
+            SELECT u.*, r.id, r.name, g.id, g.name, c.id, c.name
             FROM users u
-            LEFT JOIN roles  r ON r.id = u.role_id
-            LEFT JOIN grades g ON g.id = u.grade_id
+            LEFT JOIN roles     r ON r.id = u.role_id
+            LEFT JOIN grades    g ON g.id = u.grade_id
+            LEFT JOIN companies c ON c.id = u.company_id
             WHERE u.email = @email";
 
-        var result = await conn.QueryAsync<User, Role, Grade, User>(
+        var result = await conn.QueryAsync<User, Role, Grade, Company, User>(
             sql,
-            (user, role, grade) => { user.Role = role; user.Grade = grade; return user; },
+            (user, role, grade, company) => { user.Role = role; user.Grade = grade; user.Company = company; return user; },
             new { email },
-            splitOn: "id,id"
+            splitOn: "id,id,id"
         );
         return result.FirstOrDefault();
     }
@@ -53,16 +55,37 @@ public class UserRepository : IUserRepository
     {
         using var conn = _ctx.CreateConnection();
         const string sql = @"
-            SELECT u.*, r.id, r.name, g.id, g.name
+            SELECT u.*, r.id, r.name, g.id, g.name, c.id, c.name
             FROM users u
-            LEFT JOIN roles  r ON r.id = u.role_id
-            LEFT JOIN grades g ON g.id = u.grade_id
+            LEFT JOIN roles     r ON r.id = u.role_id
+            LEFT JOIN grades    g ON g.id = u.grade_id
+            LEFT JOIN companies c ON c.id = u.company_id
             ORDER BY u.name";
 
-        return await conn.QueryAsync<User, Role, Grade, User>(
+        return await conn.QueryAsync<User, Role, Grade, Company, User>(
             sql,
-            (user, role, grade) => { user.Role = role; user.Grade = grade; return user; },
-            splitOn: "id,id"
+            (user, role, grade, company) => { user.Role = role; user.Grade = grade; user.Company = company; return user; },
+            splitOn: "id,id,id"
+        );
+    }
+
+    public async Task<IEnumerable<User>> GetAllByCompanyAsync(int companyId)
+    {
+        using var conn = _ctx.CreateConnection();
+        const string sql = @"
+            SELECT u.*, r.id, r.name, g.id, g.name, c.id, c.name
+            FROM users u
+            LEFT JOIN roles     r ON r.id = u.role_id
+            LEFT JOIN grades    g ON g.id = u.grade_id
+            LEFT JOIN companies c ON c.id = u.company_id
+            WHERE u.company_id = @companyId
+            ORDER BY u.name";
+
+        return await conn.QueryAsync<User, Role, Grade, Company, User>(
+            sql,
+            (user, role, grade, company) => { user.Role = role; user.Grade = grade; user.Company = company; return user; },
+            new { companyId },
+            splitOn: "id,id,id"
         );
     }
 
@@ -70,8 +93,8 @@ public class UserRepository : IUserRepository
     {
         using var conn = _ctx.CreateConnection();
         const string sql = @"
-            INSERT INTO users (id, name, email, password, role_id, grade_id, is_manager, created_at)
-            VALUES (@Id, @Name, @Email, @Password, @RoleId, @GradeId, @IsManager, @CreatedAt)
+            INSERT INTO users (id, name, email, password, role_id, grade_id, is_manager, is_admin, is_coordinator, company_id, created_at)
+            VALUES (@Id, @Name, @Email, @Password, @RoleId, @GradeId, @IsManager, @IsAdmin, @IsCoordinator, @CompanyId, @CreatedAt)
             RETURNING id";
 
         return await conn.ExecuteScalarAsync<Guid>(sql, user);
@@ -82,7 +105,7 @@ public class UserRepository : IUserRepository
         using var conn = _ctx.CreateConnection();
         const string sql = @"
             UPDATE users
-            SET name = @Name, role_id = @RoleId, grade_id = @GradeId, is_manager = @IsManager
+            SET name = @Name, role_id = @RoleId, grade_id = @GradeId, is_manager = @IsManager, is_coordinator = @IsCoordinator, company_id = @CompanyId
             WHERE id = @Id";
 
         await conn.ExecuteAsync(sql, user);

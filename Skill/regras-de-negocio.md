@@ -11,8 +11,8 @@
 - Login requer **email + senha**.
 - Senha é verificada com **BCrypt**.
 - Se usuário não encontrado ou senha incorreta → HTTP 401 com mensagem `"Credenciais inválidas."`.
-- Token JWT gerado com claims: `sub` (userId), `email`, `role` (`"MANAGER"` ou `"EMPLOYEE"`), `jti` (identificador único).
-- A role do JWT é determinada pelo campo `is_manager` do usuário: `true` → `MANAGER`, `false` → `EMPLOYEE`.
+- Token JWT gerado com claims: `sub` (userId), `email`, `role`, `jti` (identificador único).
+- A role do JWT segue a prioridade: `is_admin` → `ADMIN`, `is_manager` → `MANAGER`, `is_coordinator` → `COORDINATOR`, senão → `EMPLOYEE`.
 - JWT expira em **480 minutos** (8 horas) caso `Jwt:ExpiryMinutes` não esteja configurado.
 - JWT é assinado com **HMAC-SHA256**.
 - `Jwt:Secret` é obrigatório — a aplicação lança `InvalidOperationException` na inicialização se ausente.
@@ -29,12 +29,12 @@
 | Endpoint | Método | Permissão |
 |---|---|---|
 | `POST /auth/login` | POST | **Anônimo** (sem autenticação) |
-| `GET /users` | GET | `MANAGER` |
+| `GET /users` | GET | `MANAGER`, `ADMIN`, `COORDINATOR` |
 | `GET /users/{id}` | GET | Qualquer autenticado |
-| `POST /users` | POST | `MANAGER` |
-| `PUT /users/{id}` | PUT | `MANAGER` |
-| `PUT /users/{id}/password` | PUT | `MANAGER` |
-| `DELETE /users/{id}` | DELETE | `MANAGER` |
+| `POST /users` | POST | `MANAGER`, `ADMIN`, `COORDINATOR` |
+| `PUT /users/{id}` | PUT | `MANAGER`, `ADMIN`, `COORDINATOR` |
+| `PUT /users/{id}/password` | PUT | `MANAGER`, `ADMIN` |
+| `DELETE /users/{id}` | DELETE | `MANAGER`, `ADMIN` |
 | `GET /skills` | GET | Qualquer autenticado |
 | `GET /skills/{id}` | GET | Qualquer autenticado |
 | `POST /skills` | POST | `MANAGER` |
@@ -58,7 +58,9 @@
 
 ### 2.1 Guardas de Rota
 - **PrivateRoute** — se não houver usuário autenticado, redireciona para `/login`. Caso autenticado, renderiza o layout com sidebar.
-- **ManagerRoute** — se usuário não autenticado, redireciona para `/login`; se autenticado mas `isManager === false`, redireciona para `/` (dashboard). Somente gestores acessam.
+- **ManagerRoute** — se usuário não autenticado, redireciona para `/login`; se autenticado mas não for `isManager`, `isAdmin` ou `isCoordinator`, redireciona para `/`. Gestores, Admins e Coordenadores acessam.
+- **ManagerAdminRoute** — restrita a `isManager` ou `isAdmin`.
+- **AdminRoute** — restrita a `isAdmin`.
 - Rotas desconhecidas (`path='*'`) redirecionam para `/`.
 
 ### 2.2 Tabela de Rotas
@@ -117,40 +119,81 @@ Quatro níveis de competência existem em ordem ordinal:
 
 ## 4. Gestão de Usuários (Colaboradores)
 
+### 4.0 Perfis de Acesso
+O sistema possui 4 perfis de acesso, em ordem de prioridade:
+
+| Perfil | Flags | Descrição |
+|---|---|---|
+| **Administrador** | `is_admin = true` | Acesso total ao sistema. Não vinculado a nenhuma empresa. |
+| **Gestor** | `is_manager = true` | Gerencia colaboradores da sua empresa. Pode definir perfis de outros usuários. |
+| **Coordenador** | `is_coordinator = true` | Cria/edita apenas usuários comuns da sua empresa. Não pode definir perfis. |
+| **Colaborador** (comum) | Nenhum flag ativo | Acesso básico ao sistema. |
+
+**Regras de perfil:**
+- Quando qualquer perfil (Gestor ou Coordenador) é marcado, os campos **Cargo** e **Nível** devem ficar **vazios** (`null` no banco).
+- Um usuário pode ter múltiplos perfis (Gestor + Coordenador), mas a role JWT segue a prioridade: ADMIN > MANAGER > COORDINATOR > EMPLOYEE.
+
+### 4.0.1 Vínculo com Empresa
+- Todo colaborador **obrigatoriamente** deve estar vinculado a **uma empresa** (`company_id`).
+- **Exceção**: usuários com perfil **Administrador** não são vinculados a nenhuma empresa.
+- **Administrador** ao cadastrar/editar: deve selecionar a empresa manualmente via dropdown.
+- **Gestor** ao cadastrar/editar: a empresa é **atribuída automaticamente** (mesma empresa do Gestor). O campo empresa não aparece no formulário.
+- **Coordenador** ao cadastrar/editar: a empresa é **atribuída automaticamente** (mesma empresa do Coordenador). O campo empresa não aparece no formulário.
+
+### 4.0.2 Visibilidade de Colaboradores
+| Perfil logado | Colaboradores visíveis |
+|---|---|
+| **Administrador** | Todos os colaboradores do sistema |
+| **Gestor** | Apenas colaboradores da **mesma empresa** |
+| **Coordenador** | Apenas colaboradores da **mesma empresa** |
+
+### 4.0.3 Permissões por Perfil no Cadastro/Edição
+
+| Ação | Admin | Gestor | Coordenador |
+|---|---|---|---|
+| Criar colaborador | Sim | Sim | Sim (apenas comuns) |
+| Editar colaborador | Sim (todos) | Sim (mesma empresa) | Sim (apenas comuns da mesma empresa) |
+| Definir perfil (Gestor/Coordenador) | Sim | Sim | **Não** |
+| Selecionar empresa | Sim (obrigatório) | Automático | Automático |
+| Excluir colaborador | Sim | Sim | **Não** |
+| Redefinir senha | Sim | Sim | **Não** |
+
 ### 4.1 Criação de Usuário
 - Senha é **hashada com BCrypt** antes do armazenamento.
 - ID do usuário é um **UUID gerado no servidor** (`Guid.NewGuid()`).
 - `CreatedAt` é definido como `DateTime.UtcNow` na criação.
-- `RoleId` e `GradeId` são **anuláveis** — um gestor pode não ter cargo/nível.
-- No formulário de criação, quando a checkbox `Gestor` é marcada, os dropdowns de `Cargo` e `Nível` são **desabilitados** e seus valores são limpos para `null`.
-- **Campos obrigatórios na criação**: Nome, E-mail, Senha. Quando **não** gestor: Cargo e Nível também são obrigatórios.
+- `RoleId` e `GradeId` são **anuláveis** — usuários com perfil (Gestor/Coordenador) não possuem cargo/nível.
+- Ao marcar qualquer perfil (Gestor ou Coordenador), os campos **Cargo** e **Nível** ficam ocultos e seus valores são limpos para `null`.
+- **Campos obrigatórios na criação**: Nome, E-mail, Senha. Quando **sem perfil**: Cargo e Nível também são obrigatórios. Para **Administrador**: Empresa é obrigatória.
 - **Validação de e-mail**: o campo E-mail deve conter um endereço válido (formato `usuario@dominio.ext`).
-- Campos obrigatórios são sinalizados com asterisco (`*`) via prop `required` do MUI.
-- Ao tentar salvar com campos obrigatórios vazios, os campos inválidos são destacados em vermelho com mensagem de erro.
+- O formulário é dividido em seções: **Dados Pessoais**, **Empresa** (admin), **Perfil de Acesso** (admin/gestor), **Cargo e Nível** (sem perfil).
+- Backend valida e força regras: Coordenador não pode setar perfis, empresa é auto-atribuída para Gestor/Coordenador, Cargo/Nível são anulados quando perfil ativo.
 
 ### 4.2 Atualização de Usuário
-- A atualização **NÃO** altera `email` nem `senha` — apenas `name`, `roleId`, `gradeId`, `isManager`.
+- A atualização **NÃO** altera `email` nem `senha` — apenas `name`, `roleId`, `gradeId`, `isManager`, `isCoordinator`, `companyId`.
 - Se o usuário não for encontrado na atualização → lança `KeyNotFoundException`.
-- O formulário de edição **não** exibe a checkbox `Gestor` (disponível apenas na criação). O formulário de edição exibe: nome, cargo, nível.
-- Ao editar um **Gestor**, os campos Cargo e Graduação são **ocultados**, já que gestores não possuem esses valores.
-- **Campos obrigatórios na edição**: Nome. Para não-gestores: Cargo e Nível também são obrigatórios.
-- Ao tentar salvar com campos obrigatórios vazios, os campos inválidos são destacados em vermelho com mensagem de erro.
+- O formulário de edição exibe as mesmas seções que o de criação (exceto email/senha).
+- **Admin e Gestor** podem marcar/desmarcar perfis (Gestor, Coordenador) tanto na criação quanto na edição.
+- **Coordenador** que tenta editar um usuário com perfil recebe erro de permissão.
+- Backend valida: Coordenador não pode editar usuários com perfil (Gestor/Coordenador/Admin).
 
 ### 4.3 Redefinição de Senha
-- Gestores podem redefinir a senha de qualquer colaborador pelo formulário de edição.
-- Endpoint: `PUT /users/{id}/password` — restrito a `MANAGER`.
+- Administradores e Gestores podem redefinir a senha de qualquer colaborador pelo formulário de edição.
+- Endpoint: `PUT /users/{id}/password` — restrito a `MANAGER` e `ADMIN`.
 - A nova senha é hashada com **BCrypt** antes de salvar.
 - Se o usuário não for encontrado → lança `KeyNotFoundException`.
 - Após redefinir, uma notificação de sucesso é exibida (Snackbar).
-- O campo de nova senha aparece somente para gestores logados.
+- O campo de nova senha aparece somente para Admin e Gestores logados.
 
 ### 4.4 Exclusão de Usuário
 - Excluir um usuário **cascateia** a exclusão de todas as suas `skill_assessments` (ON DELETE CASCADE no banco).
 - O frontend exibe um diálogo `confirm('Confirma exclusão?')` antes de excluir.
+- Restrita a **Admin** e **Gestor**. Coordenadores não podem excluir.
 
 ### 4.5 Listagem de Usuários
 - Usuários podem ser filtrados por nome (busca por substring, case-insensitive, no lado do cliente).
-- A listagem exibe: Nome, Email, Cargo, Graduação, Gestor (Sim/Não) e botões de ação (Editar/Excluir).
+- A listagem exibe: Nome, Email, **Empresa**, Cargo, Nível, **Perfil** (chip colorido: Administrador/Gestor/Coordenador/Colaborador) e botões de ação.
+- **Coordenadores** não veem botão de editar para usuários com perfil, nem botão de excluir.
 - Listagem é ordenada por nome (`ORDER BY u.name`).
 
 ---

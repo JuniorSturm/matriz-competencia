@@ -7,6 +7,7 @@
         "psql": true,
         "npm install": true,
         "npx tsc": true,
-        "npx vite": true
+        "npx vite": true,
+        "New-Object": true
     }
 }

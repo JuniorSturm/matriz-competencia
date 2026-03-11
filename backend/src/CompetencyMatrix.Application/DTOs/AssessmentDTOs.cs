@@ -1,5 +1,13 @@
 namespace CompetencyMatrix.Application.DTOs;
 
+public record AssessmentMatrixRow(
+    int     SkillId,
+    string  SkillName,
+    string  ExpectedLevel,
+    string  CurrentLevel,
+    string? RoleName
+);
+
 public record AssessmentResponse(
     int     SkillId,
     string  SkillName,

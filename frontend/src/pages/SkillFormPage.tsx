@@ -11,18 +11,24 @@ import SaveIcon from '@mui/icons-material/Save'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useSkills, useCreateSkill, useUpdateSkill, useSkillDescriptions, useUpsertDescription, useSkillExpectations, useUpsertExpectation } from '../hooks/useSkills'
 import { useCategories, useCargos, useNiveis } from '../hooks/useRoleGrade'
+import { useCompanies } from '../hooks/useCompanies'
+import { useAuth } from '../hooks/useAuth'
 import type { CreateSkillRequest, SkillResponse, CompetencyLevel } from '../types'
 import { LEVELS } from '../types'
 import { skillService } from '../services/skillService'
+import PageHeader from '../components/PageHeader'
 
-const EMPTY: CreateSkillRequest = { name: '', category: '' }
 const DESC_LEVELS = ['BRONZE', 'PRATA', 'OURO'] as const
 
 export default function SkillFormPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { id } = useParams<{ id: string }>()
   const skillId = id ? Number(id) : null
   const isEdit = skillId !== null
+
+  const isAdmin = user?.isAdmin ?? false
+  const userCompanyId = user?.companyId ?? null
 
   const { data: skills, isLoading: loadingSkills } = useSkills()
   const { data: descriptions, isLoading: descLoading } = useSkillDescriptions(skillId)
@@ -30,18 +36,20 @@ export default function SkillFormPage() {
   const { data: categories } = useCategories()
   const { data: cargos } = useCargos()
   const { data: niveis } = useNiveis()
+  const { data: companies } = useCompanies()
 
   const createMutation = useCreateSkill()
   const updateMutation = useUpdateSkill()
   const upsertDescMutation = useUpsertDescription()
   const upsertExpMutation = useUpsertExpectation()
 
-  const [form, setForm] = useState<CreateSkillRequest>(EMPTY)
-  // roleId -> level -> text
+  const [form, setForm] = useState<{ name: string; category: string; companyId: number | null }>({
+    name: '',
+    category: '',
+    companyId: isAdmin ? null : userCompanyId,
+  })
   const [descForm, setDescForm] = useState<Record<number, Record<string, string>>>({})
-  // roleId[] — selected roles
   const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([])
-  // roleId -> gradeId -> level
   const [roleGradeLevels, setRoleGradeLevels] = useState<Record<number, Record<number, CompetencyLevel | ''>>>({})
   const [synced, setSynced] = useState(false)
   const [descSynced, setDescSynced] = useState(false)
@@ -52,13 +60,11 @@ export default function SkillFormPage() {
     ? skills?.find((s) => s.id === skillId)
     : undefined
 
-  // Sync form from existing skill
   if (isEdit && existingSkill && !synced) {
-    setForm({ name: existingSkill.name, category: existingSkill.category })
+    setForm({ name: existingSkill.name, category: existingSkill.category, companyId: existingSkill.companyId })
     setSynced(true)
   }
 
-  // Sync descriptions — group by roleId
   if (descriptions && !descSynced) {
     const map: Record<number, Record<string, string>> = {}
     for (const d of descriptions) {
@@ -69,7 +75,6 @@ export default function SkillFormPage() {
     setDescSynced(true)
   }
 
-  // Sync expectations — group by roleId
   if (expectations && !expSynced) {
     const roleIds = new Set<number>()
     const rgl: Record<number, Record<number, CompetencyLevel | ''>> = {}
@@ -83,12 +88,10 @@ export default function SkillFormPage() {
     setExpSynced(true)
   }
 
-  // Sort grades by ordinal
   const sortedGrades = niveis ? [...niveis].sort((a, b) => a.ordinal - b.ordinal) : []
 
   const handleRoleToggle = (roleIds: number[]) => {
     setSelectedRoleIds(roleIds)
-    // Keep existing data for roles that remain, init empty for new ones
     const updated = { ...roleGradeLevels }
     const updatedDesc = { ...descForm }
     for (const rid of roleIds) {
@@ -106,7 +109,6 @@ export default function SkillFormPage() {
     }))
   }
 
-  // Validation helpers
   const hasMissingGrades = (roleId: number) =>
     sortedGrades.some((g) => !roleGradeLevels[roleId]?.[g.id])
 
@@ -120,19 +122,24 @@ export default function SkillFormPage() {
     if (!form.name.trim() || !form.category) return
     if (selectedRoleIds.length === 0) return
     if (hasCargoErrors) return
+    if (!isEdit && !form.companyId) return
 
     let savedSkillId = skillId
 
     if (isEdit && skillId) {
-      await updateMutation.mutateAsync({ id: skillId, data: form })
+      await updateMutation.mutateAsync({ id: skillId, data: { name: form.name, category: form.category } })
       savedSkillId = skillId
     } else {
-      savedSkillId = await createMutation.mutateAsync(form)
+      const request: CreateSkillRequest = {
+        name: form.name,
+        category: form.category,
+        companyId: form.companyId,
+      }
+      savedSkillId = await createMutation.mutateAsync(request)
     }
 
     if (!savedSkillId) return
 
-    // Save descriptions (per role)
     const originalDescMap: Record<number, Record<string, string>> = {}
     if (descriptions) {
       for (const d of descriptions) {
@@ -150,7 +157,6 @@ export default function SkillFormPage() {
       }
     }
 
-    // Delete expectations from roles no longer selected
     if (expectations) {
       for (const e of expectations) {
         if (!selectedRoleIds.includes(e.roleId)) {
@@ -159,7 +165,6 @@ export default function SkillFormPage() {
       }
     }
 
-    // Upsert expectations for each selected role
     for (const roleId of selectedRoleIds) {
       const gradeMap = roleGradeLevels[roleId] || {}
       const originalExpMap: Record<number, CompetencyLevel> = {}
@@ -198,18 +203,37 @@ export default function SkillFormPage() {
   if (isEdit && !existingSkill && !loadingSkills) return <Alert severity='error'>Competência não encontrada.</Alert>
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 112px)' }}>
-      <Box display='flex' alignItems='center' gap={1} mb={3}>
-        <Button startIcon={<ArrowBackIcon />} onClick={handleCancel} color='inherit'>
-          Voltar
-        </Button>
-        <Typography variant='h5' fontWeight={700}>
-          {isEdit ? 'Editar Competência' : 'Nova Competência'}
-        </Typography>
-      </Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 112px)', pr: 3 }}>
+      <PageHeader>
+        <Box display='flex' alignItems='center' gap={1}>
+          <Button startIcon={<ArrowBackIcon />} onClick={handleCancel} color='inherit'>
+            Voltar
+          </Button>
+          <Typography variant='h5' fontWeight={700}>
+            {isEdit ? 'Editar Competência' : 'Nova Competência'}
+          </Typography>
+        </Box>
+      </PageHeader>
 
       <Box sx={{ flex: 1, mb: '80px' }}>
         <Box display='flex' flexDirection='column' gap={2.5}>
+          {!isEdit && isAdmin && (
+            <FormControl fullWidth required error={submitted && !form.companyId}>
+              <InputLabel>Empresa</InputLabel>
+              <Select
+                label='Empresa'
+                value={form.companyId ?? ''}
+                onChange={(e) => setForm({ ...form, companyId: e.target.value ? Number(e.target.value) : null })}
+              >
+                <MenuItem value=''><em>Selecione</em></MenuItem>
+                {companies?.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                ))}
+              </Select>
+              {submitted && !form.companyId && <FormHelperText>Campo obrigatório</FormHelperText>}
+            </FormControl>
+          )}
+
           <TextField
             label='Nome'
             value={form.name}
@@ -233,7 +257,6 @@ export default function SkillFormPage() {
             {submitted && !form.category && <FormHelperText>Campo obrigatório</FormHelperText>}
           </FormControl>
 
-          {/* ── Cargos (multi-select) e Nível Esperado por Graduação ── */}
           <Divider sx={{ mt: 1 }} />
           <Typography variant='subtitle2' fontWeight={600} color='text.secondary'>
             Cargos e Nível Esperado por Graduação
@@ -265,7 +288,6 @@ export default function SkillFormPage() {
             {submitted && selectedRoleIds.length === 0 && <FormHelperText>Selecione ao menos 1 cargo</FormHelperText>}
           </FormControl>
 
-          {/* Accordion per selected role with grade-level selectors */}
           {selectedRoleIds.length > 0 && sortedGrades.length > 0 && (
             <Box>
               {selectedRoleIds.map((roleId) => {
@@ -301,7 +323,6 @@ export default function SkillFormPage() {
                         })}
                       </Box>
 
-                      {/* ── Descrições por Nível (per role) ── */}
                       <Divider sx={{ my: 2 }} />
                       <Typography variant='subtitle2' fontWeight={600} color='text.secondary' sx={{ mb: 1 }}>
                         Descrições por Nível

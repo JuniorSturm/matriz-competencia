@@ -9,6 +9,10 @@ import SkillsPage from './pages/SkillsPage'
 import SkillFormPage from './pages/SkillFormPage'
 import AssessmentsPage from './pages/AssessmentsPage'
 import ComparisonPage from './pages/ComparisonPage'
+import CompaniesPage from './pages/CompaniesPage'
+import CompanyFormPage from './pages/CompanyFormPage'
+import TeamsPage from './pages/TeamsPage'
+import TeamFormPage from './pages/TeamFormPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -18,7 +22,21 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 function ManagerRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   if (!user) return <Navigate to='/login' replace />
-  if (!user.isManager) return <Navigate to='/' replace />
+  if (!user.isManager && !user.isAdmin && !user.isCoordinator) return <Navigate to='/' replace />
+  return <AppLayout>{children}</AppLayout>
+}
+
+function ManagerAdminRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  if (!user) return <Navigate to='/login' replace />
+  if (!user.isManager && !user.isAdmin) return <Navigate to='/' replace />
+  return <AppLayout>{children}</AppLayout>
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  if (!user) return <Navigate to='/login' replace />
+  if (!user.isAdmin) return <Navigate to='/' replace />
   return <AppLayout>{children}</AppLayout>
 }
 
@@ -35,6 +53,12 @@ export default function App() {
       <Route path='/skills/:id/edit' element={<ManagerRoute><SkillFormPage /></ManagerRoute>} />
       <Route path='/assessments' element={<PrivateRoute><AssessmentsPage /></PrivateRoute>} />
       <Route path='/comparison' element={<ManagerRoute><ComparisonPage /></ManagerRoute>} />
+      <Route path='/companies' element={<AdminRoute><CompaniesPage /></AdminRoute>} />
+      <Route path='/companies/new' element={<AdminRoute><CompanyFormPage /></AdminRoute>} />
+      <Route path='/companies/:id/edit' element={<AdminRoute><CompanyFormPage /></AdminRoute>} />
+      <Route path='/teams' element={<ManagerRoute><TeamsPage /></ManagerRoute>} />
+      <Route path='/teams/new' element={<ManagerAdminRoute><TeamFormPage /></ManagerAdminRoute>} />
+      <Route path='/teams/:id/edit' element={<ManagerRoute><TeamFormPage /></ManagerRoute>} />
       <Route path='*' element={<Navigate to='/' replace />} />
     </Routes>
   )

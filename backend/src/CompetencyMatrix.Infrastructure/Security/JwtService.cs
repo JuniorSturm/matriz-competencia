@@ -22,16 +22,18 @@ public class JwtService : IJwtService
         _expiryMinutes = int.TryParse(config["Jwt:ExpiryMinutes"], out var exp) ? exp : 480;
     }
 
-    public string GenerateToken(Guid userId, string email, bool isManager)
+    public string GenerateToken(Guid userId, string email, bool isManager, bool isAdmin, bool isCoordinator)
     {
         var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var role = isAdmin ? "ADMIN" : isManager ? "MANAGER" : isCoordinator ? "COORDINATOR" : "EMPLOYEE";
 
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, email),
-            new Claim(ClaimTypes.Role, isManager ? "MANAGER" : "EMPLOYEE"),
+            new Claim(ClaimTypes.Role, role),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 

@@ -22,7 +22,7 @@ public class AuthService : IAuthService
         if (user is null) return null;
         if (!BC.Verify(request.Password, user.Password)) return null;
 
-        var token = _jwt.GenerateToken(user.Id, user.Email, user.IsManager);
-        return new LoginResponse(user.Id.ToString(), token, user.Name, user.IsManager);
+        var token = _jwt.GenerateToken(user.Id, user.Email, user.IsManager, user.IsAdmin, user.IsCoordinator);
+        return new LoginResponse(user.Id.ToString(), token, user.Name, user.IsManager, user.IsAdmin, user.IsCoordinator, user.CompanyId);
     }
 }

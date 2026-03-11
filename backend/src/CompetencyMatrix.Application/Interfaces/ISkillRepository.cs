@@ -6,6 +6,7 @@ public interface ISkillRepository
 {
     Task<Skill?>               GetByIdAsync(int id);
     Task<IEnumerable<Skill>>   GetAllAsync();
+    Task<IEnumerable<Skill>>   GetAllByCompanyAsync(int companyId);
     Task<IEnumerable<Skill>>   GetByRoleAsync(int roleId);
     Task<int>                  CreateAsync(Skill skill);
     Task                       UpdateAsync(Skill skill);

@@ -8,8 +8,15 @@ namespace CompetencyMatrix.Application.Services;
 public class UserService : IUserService
 {
     private readonly IUserRepository _repo;
+    private readonly ITeamRepository _teamRepo;
+    private readonly ICompanyRepository _companyRepo;
 
-    public UserService(IUserRepository repo) => _repo = repo;
+    public UserService(IUserRepository repo, ITeamRepository teamRepo, ICompanyRepository companyRepo)
+    {
+        _repo        = repo;
+        _teamRepo    = teamRepo;
+        _companyRepo = companyRepo;
+    }
 
     public async Task<UserResponse?> GetByIdAsync(Guid id)
     {
@@ -17,39 +24,152 @@ public class UserService : IUserService
         return u is null ? null : Map(u);
     }
 
-    public async Task<IEnumerable<UserResponse>> GetAllAsync()
+    public async Task<IEnumerable<UserResponse>> GetAllAsync(Guid? currentUserId = null)
     {
-        var list = await _repo.GetAllAsync();
+        if (currentUserId is null)
+            return (await _repo.GetAllAsync()).Select(Map);
+
+        var currentUser = await _repo.GetByIdAsync(currentUserId.Value);
+        if (currentUser is null)
+            return (await _repo.GetAllAsync()).Select(Map);
+
+        if (currentUser.IsAdmin)
+            return (await _repo.GetAllAsync()).Select(Map);
+
+        if (currentUser.IsCoordinator && !currentUser.IsManager)
+        {
+            if (!currentUser.CompanyId.HasValue)
+                return Enumerable.Empty<UserResponse>();
+
+            var companyUsersTask = _repo.GetAllByCompanyAsync(currentUser.CompanyId.Value);
+            var myTeamIdsTask    = _teamRepo.GetTeamIdsForUserAsync(currentUserId.Value);
+            var allInTeamsTask   = _teamRepo.GetAllTeamUserIdsAsync();
+
+            await Task.WhenAll(companyUsersTask, myTeamIdsTask, allInTeamsTask);
+
+            var companyUsers = companyUsersTask.Result.ToList();
+            var myTeamUserIds = (await _teamRepo.GetUserIdsInTeamsAsync(myTeamIdsTask.Result)).ToHashSet();
+            var allInTeams = allInTeamsTask.Result.ToHashSet();
+
+            return companyUsers
+                .Where(u => myTeamUserIds.Contains(u.Id) || !allInTeams.Contains(u.Id))
+                .Select(Map);
+        }
+
+        if (currentUser.IsManager)
+        {
+            if (currentUser.CompanyId.HasValue)
+                return (await _repo.GetAllByCompanyAsync(currentUser.CompanyId.Value)).Select(Map);
+            return Enumerable.Empty<UserResponse>();
+        }
+
+        return (await _repo.GetAllAsync()).Select(Map);
+    }
+
+    public async Task<IEnumerable<UserResponse>> GetAllByCompanyAsync(int companyId)
+    {
+        var list = await _repo.GetAllByCompanyAsync(companyId);
         return list.Select(Map);
     }
 
-    public async Task<Guid> CreateAsync(CreateUserRequest request)
+    public async Task<Guid> CreateAsync(CreateUserRequest request, Guid? currentUserId = null)
     {
+        User? caller = currentUserId.HasValue
+            ? await _repo.GetByIdAsync(currentUserId.Value)
+            : null;
+
+        var isManager     = request.IsManager;
+        var isCoordinator = request.IsCoordinator;
+        var roleId        = request.RoleId;
+        var gradeId       = request.GradeId;
+        var companyId     = request.CompanyId;
+
+        if (caller is { IsCoordinator: true, IsAdmin: false, IsManager: false })
+        {
+            isManager     = false;
+            isCoordinator = false;
+        }
+
+        if (isManager || isCoordinator)
+        {
+            roleId  = null;
+            gradeId = null;
+        }
+
+        if (caller is not null && !caller.IsAdmin && caller.CompanyId.HasValue)
+            companyId = caller.CompanyId.Value;
+
         var user = new User
         {
-            Id        = Guid.NewGuid(),
-            Name      = request.Name,
-            Email     = request.Email,
-            Password  = BC.HashPassword(request.Password),
-            RoleId    = request.RoleId,
-            GradeId   = request.GradeId,
-            IsManager = request.IsManager,
-            CreatedAt = DateTime.UtcNow
+            Id            = Guid.NewGuid(),
+            Name          = request.Name,
+            Email         = request.Email,
+            Password      = BC.HashPassword(request.Password),
+            RoleId        = roleId,
+            GradeId       = gradeId,
+            IsManager     = isManager,
+            IsAdmin       = false,
+            IsCoordinator = isCoordinator,
+            CompanyId     = companyId,
+            CreatedAt     = DateTime.UtcNow
         };
-        return await _repo.CreateAsync(user);
+        var newId = await _repo.CreateAsync(user);
+
+        // Se for gestor e tiver empresa vinculada, garante associação na empresa
+        if (user.IsManager && user.CompanyId.HasValue)
+        {
+            await _companyRepo.AddUserToCompanyAsync(user.CompanyId.Value, user.Id);
+        }
+
+        return newId;
     }
 
-    public async Task UpdateAsync(Guid id, UpdateUserRequest request)
+    public async Task UpdateAsync(Guid id, UpdateUserRequest request, Guid? currentUserId = null)
     {
         var user = await _repo.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Usuário {id} não encontrado.");
 
-        user.Name      = request.Name;
-        user.RoleId    = request.RoleId;
-        user.GradeId   = request.GradeId;
-        user.IsManager = request.IsManager;
+        User? caller = currentUserId.HasValue
+            ? await _repo.GetByIdAsync(currentUserId.Value)
+            : null;
+
+        var isManager     = request.IsManager;
+        var isCoordinator = request.IsCoordinator;
+        var roleId        = request.RoleId;
+        var gradeId       = request.GradeId;
+        var companyId     = request.CompanyId ?? user.CompanyId;
+
+        if (caller is { IsCoordinator: true, IsAdmin: false, IsManager: false })
+        {
+            if (user.IsManager || user.IsCoordinator || user.IsAdmin)
+                throw new UnauthorizedAccessException("Coordenador não pode editar usuários com perfil.");
+            isManager     = false;
+            isCoordinator = false;
+        }
+
+        if (isManager || isCoordinator)
+        {
+            roleId  = null;
+            gradeId = null;
+        }
+
+        if (caller is not null && !caller.IsAdmin && caller.CompanyId.HasValue)
+            companyId = caller.CompanyId.Value;
+
+        user.Name          = request.Name;
+        user.RoleId        = roleId;
+        user.GradeId       = gradeId;
+        user.IsManager     = isManager;
+        user.IsCoordinator = isCoordinator;
+        user.CompanyId     = companyId;
 
         await _repo.UpdateAsync(user);
+
+        // Se passar a ser gestor e tiver empresa, garante associação na empresa
+        if (user.IsManager && user.CompanyId.HasValue)
+        {
+            await _companyRepo.AddUserToCompanyAsync(user.CompanyId.Value, user.Id);
+        }
     }
 
     public async Task ResetPasswordAsync(Guid id, string newPassword)
@@ -63,6 +183,24 @@ public class UserService : IUserService
 
     public Task DeleteAsync(Guid id) => _repo.DeleteAsync(id);
 
+    public async Task<bool> CanSeeUserAsync(Guid currentUserId, Guid targetUserId)
+    {
+        if (currentUserId == targetUserId) return true;
+        var currentUser = await _repo.GetByIdAsync(currentUserId);
+        if (currentUser is null) return false;
+        if (currentUser.IsAdmin) return true;
+        if (currentUser.IsManager || currentUser.IsCoordinator)
+        {
+            if (currentUser.CompanyId.HasValue)
+            {
+                var targetUser = await _repo.GetByIdAsync(targetUserId);
+                return targetUser?.CompanyId == currentUser.CompanyId;
+            }
+            return false;
+        }
+        return false;
+    }
+
     private static UserResponse Map(User u) => new(
         u.Id,
         u.Name,
@@ -72,6 +210,10 @@ public class UserService : IUserService
         u.GradeId,
         u.Grade?.Name,
         u.IsManager,
+        u.IsAdmin,
+        u.IsCoordinator,
+        u.CompanyId,
+        u.Company?.Name,
         u.CreatedAt
     );
 }

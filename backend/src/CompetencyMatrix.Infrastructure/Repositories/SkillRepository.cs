@@ -14,22 +14,29 @@ public class SkillRepository : ISkillRepository
     {
         using var conn = _ctx.CreateConnection();
         return await conn.QueryFirstOrDefaultAsync<Skill>(
-            "SELECT * FROM skills WHERE id = @id", new { id });
+            "SELECT id, name, category, company_id AS CompanyId FROM skills WHERE id = @id", new { id });
     }
 
     public async Task<IEnumerable<Skill>> GetAllAsync()
     {
         using var conn = _ctx.CreateConnection();
         return await conn.QueryAsync<Skill>(
-            "SELECT * FROM skills ORDER BY category, name");
+            "SELECT id, name, category, company_id AS CompanyId FROM skills ORDER BY category, name");
+    }
+
+    public async Task<IEnumerable<Skill>> GetAllByCompanyAsync(int companyId)
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.QueryAsync<Skill>(
+            "SELECT id, name, category, company_id AS CompanyId FROM skills WHERE company_id = @companyId ORDER BY category, name",
+            new { companyId });
     }
 
     public async Task<IEnumerable<Skill>> GetByRoleAsync(int roleId)
     {
         using var conn = _ctx.CreateConnection();
-        // Retorna skills que possuem expectativa para o cargo informado
         const string sql = @"
-            SELECT DISTINCT s.*
+            SELECT DISTINCT s.id, s.name, s.category, s.company_id AS CompanyId
             FROM skills s
             JOIN skill_expectations se ON se.skill_id = s.id AND se.role_id = @roleId
             ORDER BY s.category, s.name";
@@ -41,8 +48,8 @@ public class SkillRepository : ISkillRepository
     {
         using var conn = _ctx.CreateConnection();
         const string sql = @"
-            INSERT INTO skills (name, category)
-            VALUES (@Name, @Category)
+            INSERT INTO skills (name, category, company_id)
+            VALUES (@Name, @Category, @CompanyId)
             RETURNING id";
 
         return await conn.ExecuteScalarAsync<int>(sql, skill);
@@ -141,7 +148,6 @@ public class SkillRepository : ISkillRepository
     public async Task<Dictionary<int, string>> GetSkillRoleNamesAsync(IEnumerable<int> skillIds, int roleId)
     {
         using var conn = _ctx.CreateConnection();
-        // Get role name filtered by the user's role
         const string sql = @"
             SELECT DISTINCT se.skill_id AS SkillId, r.name AS RoleName
             FROM skill_expectations se

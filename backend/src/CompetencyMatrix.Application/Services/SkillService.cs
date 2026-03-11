@@ -22,6 +22,12 @@ public class SkillService : ISkillService
         return list.Select(Map);
     }
 
+    public async Task<IEnumerable<SkillResponse>> GetAllByCompanyAsync(int companyId)
+    {
+        var list = await _repo.GetAllByCompanyAsync(companyId);
+        return list.Select(Map);
+    }
+
     public async Task<IEnumerable<SkillResponse>> GetByRoleAsync(int roleId)
     {
         var list = await _repo.GetByRoleAsync(roleId);
@@ -32,8 +38,9 @@ public class SkillService : ISkillService
     {
         var skill = new Skill
         {
-            Name     = request.Name,
-            Category = request.Category
+            Name      = request.Name,
+            Category  = request.Category,
+            CompanyId = request.CompanyId ?? 0
         };
         return await _repo.CreateAsync(skill);
     }
@@ -94,5 +101,5 @@ public class SkillService : ISkillService
     }
 
     private static SkillResponse Map(Skill s) =>
-        new(s.Id, s.Name, s.Category);
+        new(s.Id, s.Name, s.Category, s.CompanyId);
 }
