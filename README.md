@@ -31,7 +31,9 @@ Login padrão Administrador:
 
 Login padrão Gestor:
 - **E-mail:** gestor@empresa.com
-- **Senha:**  Admin@123
+- **Senha:**  
+
+diego.liz@empresa.com
 
 ---
 

@@ -31,6 +31,8 @@ const levelAChipSx   = { bgcolor: alpha(BRAND.cyan, 0.10), color: BRAND.cyanDark
 const levelBChipSx   = { bgcolor: alpha(BRAND.purple, 0.08), color: BRAND.purpleLight } as const
 const levelCChipSx   = { bgcolor: alpha(BRAND.success, 0.08), color: BRAND.success } as const
 
+const colFromSm = { display: { xs: 'none', sm: 'table-cell' } } as const
+
 interface ComparisonRowProps {
   r: ComparisonRowType
   category: string
@@ -43,10 +45,10 @@ const ComparisonRow = memo(function ComparisonRow({ r, category, hasC }: Compari
       <TableCell>
         <Typography variant='body2' fontWeight={600}>{r.skillName}</Typography>
       </TableCell>
-      <TableCell>
+      <TableCell sx={colFromSm}>
         <Chip label={category} size='small' sx={catChipSx} />
       </TableCell>
-      <TableCell>
+      <TableCell sx={colFromSm}>
         <Chip label={r.expectedLevel} size='small' sx={expectedChipSx} />
       </TableCell>
       <TableCell>
@@ -101,7 +103,7 @@ export default function ComparisonPage() {
   }, [skills])
 
   return (
-    <Box sx={{ minWidth: 0, overflowX: 'hidden', pr: 3, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <Box sx={{ minWidth: 0, overflowX: 'hidden', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader>
         <Box mb={0}>
           <Typography variant='h5' fontWeight={700}>Comparação de Colaboradores</Typography>
@@ -121,22 +123,22 @@ export default function ComparisonPage() {
           background: `linear-gradient(135deg, ${alpha(BRAND.cyan, 0.03)} 0%, ${alpha(BRAND.purple, 0.03)} 100%)`,
         }}
       >
-        <Box display='flex' gap={2} flexWrap='wrap' alignItems='flex-end'>
-          <FormControl sx={{ minWidth: 220, flex: 1 }}>
+        <Box display='flex' flexDirection={{ xs: 'column', sm: 'row' }} gap={2} flexWrap='wrap' alignItems='stretch'>
+          <FormControl sx={{ minWidth: { xs: 0, sm: 220 }, flex: { sm: 1 } }}>
             <InputLabel>Colaborador A</InputLabel>
             <Select label='Colaborador A' value={userAId} onChange={(e) => { setUserAId(e.target.value); setRun(false) }}>
               <MenuItem value=''>Selecione...</MenuItem>
               {users?.filter((u) => !u.isManager && !u.isCoordinator).map((u) => <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>)}
             </Select>
           </FormControl>
-          <FormControl sx={{ minWidth: 220, flex: 1 }}>
+          <FormControl sx={{ minWidth: { xs: 0, sm: 220 }, flex: { sm: 1 } }}>
             <InputLabel>Colaborador B</InputLabel>
             <Select label='Colaborador B' value={userBId} onChange={(e) => { setUserBId(e.target.value); setRun(false) }}>
               <MenuItem value=''>Selecione...</MenuItem>
               {users?.filter((u) => !u.isManager && !u.isCoordinator).map((u) => <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>)}
             </Select>
           </FormControl>
-          <FormControl sx={{ minWidth: 220, flex: 1 }}>
+          <FormControl sx={{ minWidth: { xs: 0, sm: 220 }, flex: { sm: 1 } }}>
             <InputLabel>Colaborador C (opcional)</InputLabel>
             <Select label='Colaborador C (opcional)' value={userCId} onChange={(e) => { setUserCId(e.target.value); setRun(false) }}>
               <MenuItem value=''>Nenhum</MenuItem>
@@ -149,10 +151,10 @@ export default function ComparisonPage() {
             disabled={!userAId || !userBId}
             onClick={() => setRun(true)}
             sx={{
-              alignSelf: 'center',
+              alignSelf: { xs: 'stretch', sm: 'center' },
               px: 3,
               py: 1.2,
-              minWidth: 140,
+              minWidth: { xs: '100%', sm: 140 },
             }}
           >
             Comparar
@@ -176,12 +178,12 @@ export default function ComparisonPage() {
           }}
         >
           <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'block' }}>
-            <Table size='small' stickyHeader>
+            <Table size='small' stickyHeader sx={{ minWidth: { xs: 0, sm: 560 } }}>
             <TableHead>
               <TableRow>
                 <TableCell>Competência</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>Categoria</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>Esperado</TableCell>
+                <TableCell sx={{ ...colFromSm, whiteSpace: 'nowrap' }}>Categoria</TableCell>
+                <TableCell sx={{ ...colFromSm, whiteSpace: 'nowrap' }}>Esperado</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                   <Box display='flex' alignItems='center' gap={0.5}>
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: BRAND.cyan, flexShrink: 0 }} />

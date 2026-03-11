@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Box, Button, IconButton, Paper, Table, TableBody, TableCell, TableContainer,
+  Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Alert, CircularProgress, Chip,
   InputAdornment, TablePagination,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import { useUsers, useDeleteUser } from '../hooks/useUsers'
 import { useAuth } from '../hooks/useAuth'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
+import TableRowActionsMenu from '../components/TableRowActionsMenu'
+
+/** Colunas ocultas em telas pequenas (só a partir de sm) */
+const colFromSm = { display: { xs: 'none', sm: 'table-cell' } } as const
 
 function getProfileLabel(u: { isAdmin: boolean; isManager: boolean; isCoordinator: boolean }) {
   if (u.isAdmin) return 'Administrador'
@@ -64,9 +66,9 @@ export default function UsersPage() {
   if (error) return <Alert severity='error'>Erro ao carregar usuários.</Alert>
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', pr: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
       <PageHeader>
-        <Box display='flex' justifyContent='space-between' alignItems='center'>
+        <Box display='flex' justifyContent='space-between' alignItems={{ xs: 'stretch', sm: 'center' }} flexWrap='wrap' gap={2}>
           <Box>
             <Typography variant='h5' fontWeight={700}>Colaboradores</Typography>
             <Typography variant='body2' color='text.secondary'>
@@ -74,12 +76,13 @@ export default function UsersPage() {
             </Typography>
           </Box>
           <Button
-          startIcon={<AddIcon />}
-          variant='contained'
-          onClick={() => navigate('/users/new')}
-        >
-          Novo Colaborador
-        </Button>
+            startIcon={<AddIcon />}
+            variant='contained'
+            onClick={() => navigate('/users/new')}
+            sx={{ flexShrink: 0 }}
+          >
+            Novo Colaborador
+          </Button>
         </Box>
       </PageHeader>
 
@@ -88,7 +91,7 @@ export default function UsersPage() {
         size='small'
         value={nameFilter}
         onChange={(e) => { setNameFilter(e.target.value); setPage(0) }}
-        sx={{ mb: 2, mt: 2, minWidth: 320, flexShrink: 0 }}
+        sx={{ mb: 2, mt: 2, minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
         InputProps={{
           startAdornment: (
             <InputAdornment position='start'>
@@ -109,16 +112,16 @@ export default function UsersPage() {
         }}
       >
         <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'block' }}>
-          <Table size='small' stickyHeader>
+          <Table size='small' stickyHeader sx={{ minWidth: { xs: 0, sm: 480 } }}>
             <TableHead>
               <TableRow>
                 <TableCell>Nome</TableCell>
-                <TableCell>E-mail</TableCell>
-                {isLoggedAdmin && <TableCell>Empresa</TableCell>}
-                <TableCell>Cargo</TableCell>
-                <TableCell>Nível</TableCell>
+                <TableCell sx={colFromSm}>E-mail</TableCell>
+                {isLoggedAdmin && <TableCell sx={colFromSm}>Empresa</TableCell>}
+                <TableCell sx={colFromSm}>Cargo</TableCell>
+                <TableCell sx={colFromSm}>Nível</TableCell>
                 <TableCell>Perfil</TableCell>
-                <TableCell align='right'>Ações</TableCell>
+                <TableCell align='right' sx={{ width: 56 }}>Ações</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -132,12 +135,14 @@ export default function UsersPage() {
                     <TableCell>
                       <Typography variant='body2' fontWeight={600}>{u.name}</Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={colFromSm}>
                       <Typography variant='body2' color='text.secondary'>{u.email}</Typography>
                     </TableCell>
-                    {isLoggedAdmin && <TableCell>{u.companyName ?? '—'}</TableCell>}
-                    <TableCell>{u.roleName ?? '—'}</TableCell>
-                    <TableCell>{u.gradeName ?? '—'}</TableCell>
+                    {isLoggedAdmin && (
+                      <TableCell sx={colFromSm}>{u.companyName ?? '—'}</TableCell>
+                    )}
+                    <TableCell sx={colFromSm}>{u.roleName ?? '—'}</TableCell>
+                    <TableCell sx={colFromSm}>{u.gradeName ?? '—'}</TableCell>
                     <TableCell>
                       <Chip
                         label={getProfileLabel(u)}
@@ -151,16 +156,14 @@ export default function UsersPage() {
                       />
                     </TableCell>
                     <TableCell align='right'>
-                      {canEditUser && (
-                        <IconButton size='small' onClick={() => navigate(`/users/${u.id}/edit`)} sx={{ color: BRAND.cyan }}>
-                          <EditIcon fontSize='small' />
-                        </IconButton>
-                      )}
-                      {canDelete && (
-                        <IconButton size='small' onClick={() => handleDelete(u.id)} sx={{ color: BRAND.error }}>
-                          <DeleteIcon fontSize='small' />
-                        </IconButton>
-                      )}
+                      <TableRowActionsMenu
+                        canEdit={canEditUser}
+                        canDelete={canDelete}
+                        onEdit={() => navigate(`/users/${u.id}/edit`)}
+                        onDelete={() => handleDelete(u.id)}
+                        editLabel='Editar'
+                        deleteLabel='Excluir'
+                      />
                     </TableCell>
                   </TableRow>
                 )

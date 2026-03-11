@@ -1,18 +1,17 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Box, Button, IconButton, Paper, Table, TableBody, TableCell, TableContainer,
+  Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Alert, CircularProgress, Chip,
   InputAdornment,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import { useSkills, useDeleteSkill } from '../hooks/useSkills'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
+import TableRowActionsMenu from '../components/TableRowActionsMenu'
 
 export default function SkillsPage() {
   const navigate = useNavigate()
@@ -36,9 +35,9 @@ export default function SkillsPage() {
   if (error) return <Alert severity='error'>Erro ao carregar competências.</Alert>
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', pr: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
       <PageHeader>
-        <Box display='flex' justifyContent='space-between' alignItems='center'>
+        <Box display='flex' justifyContent='space-between' alignItems={{ xs: 'stretch', sm: 'center' }} flexWrap='wrap' gap={2}>
           <Box>
             <Typography variant='h5' fontWeight={700}>Competências</Typography>
             <Typography variant='body2' color='text.secondary'>
@@ -46,12 +45,13 @@ export default function SkillsPage() {
             </Typography>
           </Box>
           <Button
-          startIcon={<AddIcon />}
-          variant='contained'
-          onClick={() => navigate('/skills/new')}
-        >
-          Nova Competência
-        </Button>
+            startIcon={<AddIcon />}
+            variant='contained'
+            onClick={() => navigate('/skills/new')}
+            sx={{ flexShrink: 0 }}
+          >
+            Nova Competência
+          </Button>
         </Box>
       </PageHeader>
 
@@ -60,7 +60,7 @@ export default function SkillsPage() {
         size='small'
         value={nameFilter}
         onChange={(e) => setNameFilter(e.target.value)}
-        sx={{ mb: 2, mt: 2, minWidth: 320, flexShrink: 0 }}
+        sx={{ mb: 2, mt: 2, minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
         InputProps={{
           startAdornment: (
             <InputAdornment position='start'>
@@ -85,7 +85,7 @@ export default function SkillsPage() {
             <TableRow>
               <TableCell>Nome</TableCell>
               <TableCell>Categoria</TableCell>
-              <TableCell align='right'>Ações</TableCell>
+              <TableCell align='right' sx={{ width: 56 }}>Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -107,12 +107,12 @@ export default function SkillsPage() {
                   />
                 </TableCell>
                 <TableCell align='right'>
-                  <IconButton size='small' onClick={() => navigate(`/skills/${s.id}/edit`)} sx={{ color: BRAND.cyan }}>
-                    <EditIcon fontSize='small' />
-                  </IconButton>
-                  <IconButton size='small' onClick={() => handleDelete(s.id)} sx={{ color: BRAND.error }}>
-                    <DeleteIcon fontSize='small' />
-                  </IconButton>
+                  <TableRowActionsMenu
+                    onEdit={() => navigate(`/skills/${s.id}/edit`)}
+                    onDelete={() => handleDelete(s.id)}
+                    editLabel='Editar'
+                    deleteLabel='Excluir'
+                  />
                 </TableCell>
               </TableRow>
             ))}

@@ -425,11 +425,11 @@ export default function DashboardPage() {
   }, [isCoordinator, teamSummaries.length])
 
   return (
-    <Box sx={{ minWidth: 0, overflowX: 'hidden', pr: 3 }}>
+    <Box sx={{ minWidth: 0, overflowX: 'hidden' }}>
       {/* Welcome Section */}
       <PageHeader>
-        <Box>
-          <Typography variant='h4' fontWeight={700} sx={{ mb: 0.5 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant='h4' fontWeight={700} sx={{ mb: 0.5, fontSize: { xs: '1.35rem', sm: '1.5rem', md: '2rem' } }}>
             Bem-vindo, {user?.name?.split(' ')[0]}
             <Box
               component='span'
@@ -712,13 +712,13 @@ export default function DashboardPage() {
               gradient={`linear-gradient(135deg, ${BRAND.success} 0%, #69F0AE 100%)`}
             />
           </Box>
-          <Box display='flex' gap={2}>
+          <Box display='flex' flexDirection={{ xs: 'column', sm: 'row' }} gap={2} flexWrap='wrap'>
             <Button
               variant='contained'
               size='large'
               onClick={() => navigate('/companies')}
               startIcon={<GroupsIcon />}
-              sx={{ px: 4, py: 1.5 }}
+              sx={{ px: 4, py: 1.5, minWidth: { xs: '100%', sm: 'auto' } }}
             >
               Gerenciar Empresas
             </Button>
@@ -727,7 +727,7 @@ export default function DashboardPage() {
               size='large'
               onClick={() => navigate('/users')}
               startIcon={<PeopleIcon />}
-              sx={{ px: 4, py: 1.5 }}
+              sx={{ px: 4, py: 1.5, minWidth: { xs: '100%', sm: 'auto' } }}
             >
               Gerenciar Colaboradores
             </Button>
@@ -736,7 +736,7 @@ export default function DashboardPage() {
               size='large'
               onClick={() => navigate('/skills')}
               startIcon={<SchoolIcon />}
-              sx={{ px: 4, py: 1.5 }}
+              sx={{ px: 4, py: 1.5, minWidth: { xs: '100%', sm: 'auto' } }}
             >
               Gerenciar Competências
             </Button>

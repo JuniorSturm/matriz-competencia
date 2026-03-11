@@ -340,7 +340,7 @@ export default function TeamFormPage() {
   const someCompFlyoutPageSelected = allCompFlyoutPageIds.some(id => compFlyoutSelected.has(id)) && !allCompFlyoutPageSelected
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 112px)', pr: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 112px)', minWidth: 0 }}>
       <PageHeader>
         <Box display='flex' alignItems='center' gap={1}>
           <Button startIcon={<ArrowBackIcon />} onClick={handleCancel} color='inherit'>

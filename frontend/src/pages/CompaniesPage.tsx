@@ -1,13 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Box, Button, IconButton, Paper, Table, TableBody, TableCell, TableContainer,
+  Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Alert, CircularProgress, Chip,
   InputAdornment, Avatar, TablePagination,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import BusinessIcon from '@mui/icons-material/Business'
@@ -15,6 +13,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { companyService } from '../services/companyService'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
+import TableRowActionsMenu from '../components/TableRowActionsMenu'
+
+const colFromSm = { display: { xs: 'none', sm: 'table-cell' } } as const
 
 export default function CompaniesPage() {
   const navigate = useNavigate()
@@ -54,9 +55,9 @@ export default function CompaniesPage() {
   if (error) return <Alert severity='error'>Erro ao carregar empresas.</Alert>
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden', pr: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
       <PageHeader>
-        <Box display='flex' justifyContent='space-between' alignItems='center'>
+        <Box display='flex' justifyContent='space-between' alignItems={{ xs: 'stretch', sm: 'center' }} flexWrap='wrap' gap={2}>
           <Box>
             <Typography variant='h5' fontWeight={700}>Empresas</Typography>
             <Typography variant='body2' color='text.secondary'>
@@ -64,12 +65,13 @@ export default function CompaniesPage() {
             </Typography>
           </Box>
           <Button
-          startIcon={<AddIcon />}
-          variant='contained'
-          onClick={() => navigate('/companies/new')}
-        >
-          Nova Empresa
-        </Button>
+            startIcon={<AddIcon />}
+            variant='contained'
+            onClick={() => navigate('/companies/new')}
+            sx={{ flexShrink: 0 }}
+          >
+            Nova Empresa
+          </Button>
         </Box>
       </PageHeader>
 
@@ -78,7 +80,7 @@ export default function CompaniesPage() {
         size='small'
         value={nameFilter}
         onChange={(e) => { setNameFilter(e.target.value); setPage(0) }}
-        sx={{ mb: 2, mt: 2, minWidth: 320, flexShrink: 0 }}
+        sx={{ mb: 2, mt: 2, minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
         InputProps={{
           startAdornment: (
             <InputAdornment position='start'>
@@ -99,17 +101,17 @@ export default function CompaniesPage() {
         }}
       >
         <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'block' }}>
-          <Table size='small' stickyHeader>
+          <Table size='small' stickyHeader sx={{ minWidth: { xs: 0, sm: 520 } }}>
             <TableHead>
               <TableRow>
                 <TableCell>Empresa</TableCell>
-                <TableCell>CNPJ</TableCell>
-                <TableCell>E-mail</TableCell>
-                <TableCell>Telefone</TableCell>
-                <TableCell>Colaboradores</TableCell>
-                <TableCell>Gestores</TableCell>
+                <TableCell sx={colFromSm}>CNPJ</TableCell>
+                <TableCell sx={colFromSm}>E-mail</TableCell>
+                <TableCell sx={colFromSm}>Telefone</TableCell>
+                <TableCell sx={colFromSm}>Colaboradores</TableCell>
+                <TableCell sx={colFromSm}>Gestores</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell align='right'>Ações</TableCell>
+                <TableCell align='right' sx={{ width: 56 }}>Ações</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -128,21 +130,21 @@ export default function CompaniesPage() {
                       <Typography variant='body2' fontWeight={600}>{c.name}</Typography>
                     </Box>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={colFromSm}>
                     <Typography variant='body2' color='text.secondary'>{c.document ?? '—'}</Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={colFromSm}>
                     <Typography variant='body2' color='text.secondary'>{c.email ?? '—'}</Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={colFromSm}>
                     <Typography variant='body2' color='text.secondary'>{c.phone ?? '—'}</Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={colFromSm}>
                     <Typography variant='body2' color='text.secondary'>
                       {c.users.filter((u) => !u.isManager).length}
                     </Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={colFromSm}>
                     <Typography variant='body2' color='text.secondary'>
                       {c.users.filter((u) => u.isManager).length}
                     </Typography>
@@ -160,12 +162,12 @@ export default function CompaniesPage() {
                     />
                   </TableCell>
                   <TableCell align='right'>
-                    <IconButton size='small' onClick={() => navigate(`/companies/${c.id}/edit`)} sx={{ color: BRAND.cyan }}>
-                      <EditIcon fontSize='small' />
-                    </IconButton>
-                    <IconButton size='small' onClick={() => handleDelete(c.id)} sx={{ color: BRAND.error }}>
-                      <DeleteIcon fontSize='small' />
-                    </IconButton>
+                    <TableRowActionsMenu
+                      onEdit={() => navigate(`/companies/${c.id}/edit`)}
+                      onDelete={() => handleDelete(c.id)}
+                      editLabel='Editar'
+                      deleteLabel='Excluir'
+                    />
                   </TableCell>
                 </TableRow>
               ))}

@@ -68,16 +68,18 @@ const expectedChipSx = {
   fontWeight: 600,
 } as const
 
+const colFromSm = { display: { xs: 'none', sm: 'table-cell' } } as const
+
 const AssessmentRow = memo(function AssessmentRow({ a, category, canAssess, onLevelChange, onOpenDetails }: AssessmentRowProps) {
   return (
     <TableRow>
       <TableCell>
         <Typography variant='body2' fontWeight={600}>{a.skillName}</Typography>
       </TableCell>
-      <TableCell>
+      <TableCell sx={colFromSm}>
         <Chip label={category} size='small' sx={categoryChipSx} />
       </TableCell>
-      <TableCell>
+      <TableCell sx={colFromSm}>
         <Chip label={a.expectedLevel} size='small' sx={expectedChipSx} />
       </TableCell>
       <TableCell>
@@ -95,7 +97,12 @@ const AssessmentRow = memo(function AssessmentRow({ a, category, canAssess, onLe
         />
       </TableCell>
       <TableCell align='center'>
-        <IconButton size='small' onClick={() => onOpenDetails(a.skillId)} sx={{ color: BRAND.cyan }}>
+        <IconButton
+          size='small'
+          onClick={() => onOpenDetails(a.skillId)}
+          aria-label='Ver detalhes'
+          sx={{ color: BRAND.cyan, p: 1, minWidth: 40, minHeight: 40 }}
+        >
           <InfoOutlinedIcon fontSize='small' />
         </IconButton>
       </TableCell>
@@ -222,7 +229,7 @@ export default function AssessmentsPage() {
   }, [])
 
   return (
-    <Box sx={{ minWidth: 0, overflowX: 'hidden', pr: 3, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <Box sx={{ minWidth: 0, overflowX: 'hidden', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader>
         <Box mb={0}>
           <Typography variant='h5' fontWeight={700}>Avaliação de Competências</Typography>
@@ -234,7 +241,7 @@ export default function AssessmentsPage() {
 
       <Box sx={{ flexShrink: 0, mt: 1 }}>
       {canAssess && (
-        <FormControl sx={{ mb: 2, minWidth: 300 }}>
+        <FormControl sx={{ mb: 2, minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 300 } }}>
           <InputLabel>Colaborador</InputLabel>
           <Select
             label='Colaborador'
@@ -284,15 +291,15 @@ export default function AssessmentsPage() {
                   display: 'block',
                 }}
               >
-                <Table size='small' stickyHeader>
+                <Table size='small' stickyHeader sx={{ minWidth: { xs: 0, sm: 440 } }}>
                   <TableHead>
                     <TableRow>
                       <TableCell>Competência</TableCell>
-                      <TableCell>Categoria</TableCell>
-                      <TableCell>Esperado</TableCell>
+                      <TableCell sx={colFromSm}>Categoria</TableCell>
+                      <TableCell sx={colFromSm}>Esperado</TableCell>
                       <TableCell>Atual</TableCell>
                       <TableCell>GAP</TableCell>
-                      <TableCell align='center'>Detalhes</TableCell>
+                      <TableCell align='center' sx={{ width: 56 }}>Detalhes</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
