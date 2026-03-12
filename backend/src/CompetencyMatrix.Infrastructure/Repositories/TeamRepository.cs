@@ -56,11 +56,21 @@ public class TeamRepository : ITeamRepository
     {
         using var conn = _ctx.CreateConnection();
         const string sql = @"
-            SELECT t.id, t.company_id, t.name, t.description, t.created_at
+            SELECT t.id, t.company_id, t.name, t.description, t.created_at, c.name AS company_name
             FROM teams t
+            LEFT JOIN companies c ON c.id = t.company_id
             WHERE t.company_id = @companyId
             ORDER BY t.name";
-        return await conn.QueryAsync<Team>(sql, new { companyId });
+        var rows = await conn.QueryAsync<(int id, int company_id, string name, string? description, DateTime created_at, string? company_name)>(sql, new { companyId });
+        return rows.Select(r => new Team
+        {
+            Id          = r.id,
+            CompanyId   = r.company_id,
+            Name        = r.name,
+            Description = r.description,
+            CreatedAt   = r.created_at,
+            Company     = r.company_name != null ? new Company { Id = r.company_id, Name = r.company_name } : null
+        });
     }
 
     public async Task<IEnumerable<(Guid UserId, string UserName, string UserEmail, bool IsLeader)>> GetMemberDetailsAsync(int teamId)
@@ -98,6 +108,7 @@ public class TeamRepository : ITeamRepository
     public async Task DeleteAsync(int id)
     {
         using var conn = _ctx.CreateConnection();
+        await conn.ExecuteAsync("DELETE FROM team_competencies WHERE team_id = @id", new { id });
         await conn.ExecuteAsync("DELETE FROM team_members WHERE team_id = @id", new { id });
         await conn.ExecuteAsync("DELETE FROM teams WHERE id = @id", new { id });
     }
@@ -198,5 +209,11 @@ public class TeamRepository : ITeamRepository
             JOIN team_competencies tc ON tc.team_id = tm.team_id
             WHERE tm.user_id = @userId";
         return await conn.QueryAsync<int>(sql, new { userId });
+    }
+
+    public async Task<int> CountTeamCompetenciesBySkillAsync(int skillId)
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM team_competencies WHERE skill_id = @skillId", new { skillId });
     }
 }

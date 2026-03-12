@@ -123,4 +123,10 @@ public class UserRepository : IUserRepository
         using var conn = _ctx.CreateConnection();
         await conn.ExecuteAsync("DELETE FROM users WHERE id = @id", new { id });
     }
+
+    public async Task<int> CountByRoleAsync(int roleId)
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM users WHERE role_id = @roleId", new { roleId });
+    }
 }

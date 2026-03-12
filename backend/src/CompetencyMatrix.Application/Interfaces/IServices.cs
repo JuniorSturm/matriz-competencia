@@ -49,6 +49,16 @@ public interface IRoleGradeService
     Task<IEnumerable<GradeResponse>> GetAllGradesAsync();
 }
 
+public interface IRoleService
+{
+    Task<IEnumerable<RoleDetailResponse>> GetAllAsync(Guid? currentUserId, int? companyId = null);
+    Task<IEnumerable<RoleResponse>>      GetByCompanyAsync(int companyId, Guid? currentUserId = null);
+    Task<RoleDetailResponse?>            GetByIdAsync(int id);
+    Task<int>                            CreateAsync(CreateRoleRequest request, Guid? currentUserId = null);
+    Task                                 UpdateAsync(int id, UpdateRoleRequest request, Guid? currentUserId = null);
+    Task                                 DeleteAsync(int id, Guid? currentUserId = null);
+}
+
 public interface ICompanyService
 {
     Task<CompanyResponse?>             GetByIdAsync(int id);

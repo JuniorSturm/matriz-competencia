@@ -3,17 +3,19 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box, Button, TextField, Typography, Checkbox, FormControlLabel,
   FormControl, InputLabel, Select, MenuItem, Paper, CircularProgress, Alert,
-  Snackbar, FormHelperText, Divider,
+  Snackbar, FormHelperText, Divider, Avatar,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
 import LockResetIcon from '@mui/icons-material/LockReset'
+import PeopleIcon from '@mui/icons-material/People'
 import { useUser, useCreateUser, useUpdateUser, useResetPassword } from '../hooks/useUsers'
-import { useCargos, useNiveis } from '../hooks/useRoleGrade'
+import { useRolesByCompany, useNiveis } from '../hooks/useRoleGrade'
 import { useAuth } from '../hooks/useAuth'
 import { useCompanies } from '../hooks/useCompanies'
 import PageHeader from '../components/PageHeader'
+import { BRAND } from '../theme/ThemeProvider'
 import type { CreateUserRequest, UpdateUserRequest } from '../types'
 
 const EMPTY_CREATE: CreateUserRequest = {
@@ -33,19 +35,16 @@ export default function UserFormPage() {
   const { id } = useParams<{ id: string }>()
   const isEdit = !!id
 
+  const { user: loggedUser } = useAuth()
   const { data: existingUser, isLoading: loadingUser } = useUser(id ?? '')
   const createMutation = useCreateUser()
   const updateMutation = useUpdateUser()
   const resetPwdMutation = useResetPassword()
-  const { data: cargos = [] } = useCargos()
   const { data: niveis = [] } = useNiveis()
-  const { user: loggedUser } = useAuth()
 
   const isLoggedAdmin = loggedUser?.isAdmin ?? false
   const isLoggedGestor = (loggedUser?.isManager ?? false) && !isLoggedAdmin
   const isLoggedCoordinator = (loggedUser?.isCoordinator ?? false) && !isLoggedAdmin && !(loggedUser?.isManager ?? false)
-
-  const { data: companies = [] } = useCompanies(isLoggedAdmin)
 
   const [form, setForm] = useState<CreateUserRequest>(EMPTY_CREATE)
   const [editForm, setEditForm] = useState<UpdateUserRequest>({
@@ -55,6 +54,10 @@ export default function UserFormPage() {
   const [synced, setSynced] = useState(false)
   const [pwdSuccess, setPwdSuccess] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+
+  const companyIdForRoles = (isEdit ? editForm.companyId : form.companyId) ?? loggedUser?.companyId ?? null
+  const { data: roles = [] } = useRolesByCompany(companyIdForRoles)
+  const { data: companies = [] } = useCompanies(isLoggedAdmin)
 
   if (isEdit && existingUser && !synced) {
     setEditForm({
@@ -161,11 +164,17 @@ export default function UserFormPage() {
       </PageHeader>
 
       <Box sx={{ flex: 1, mb: '80px' }}>
-        <Box display='flex' flexDirection='column' gap={3}>
-
-          {/* ── Dados Pessoais ── */}
-          <Box>
-            <Typography variant='subtitle2' sx={sectionTitle}>Dados Pessoais</Typography>
+        <Paper sx={{ p: 3, borderRadius: '16px', mb: 3 }}>
+          <Box display='flex' alignItems='center' gap={1.5} mb={2.5}>
+            <Avatar sx={{ bgcolor: alpha(BRAND.cyan, 0.15), color: BRAND.cyan }}>
+              <PeopleIcon />
+            </Avatar>
+            <Typography variant='h6' fontWeight={600}>Dados do Colaborador</Typography>
+          </Box>
+          <Box display='flex' flexDirection='column' gap={3}>
+            {/* ── Dados Pessoais ── */}
+            <Box>
+              <Typography variant='subtitle2' sx={sectionTitle}>Dados Pessoais</Typography>
             <Box display='flex' flexDirection='column' gap={2}>
               <TextField
                 label='Nome'
@@ -292,7 +301,7 @@ export default function UserFormPage() {
                       }}
                     >
                       <MenuItem value=''><em>Nenhum</em></MenuItem>
-                      {cargos.map((c) => <MenuItem key={c.id} value={c.id}>{c.nome}</MenuItem>)}
+                      {roles.map((r) => <MenuItem key={r.id} value={r.id}>{r.nome}</MenuItem>)}
                     </Select>
                     {submitted && !currentRoleId && <FormHelperText>Campo obrigatório</FormHelperText>}
                   </FormControl>
@@ -346,8 +355,8 @@ export default function UserFormPage() {
               </Box>
             </>
           )}
-
-        </Box>
+          </Box>
+        </Paper>
       </Box>
 
       <Paper

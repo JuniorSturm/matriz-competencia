@@ -11,6 +11,8 @@ import AssessmentsPage from './pages/AssessmentsPage'
 import ComparisonPage from './pages/ComparisonPage'
 import CompaniesPage from './pages/CompaniesPage'
 import CompanyFormPage from './pages/CompanyFormPage'
+import RolesPage from './pages/RolesPage'
+import RoleFormPage from './pages/RoleFormPage'
 import TeamsPage from './pages/TeamsPage'
 import TeamFormPage from './pages/TeamFormPage'
 
@@ -56,6 +58,9 @@ export default function App() {
       <Route path='/companies' element={<AdminRoute><CompaniesPage /></AdminRoute>} />
       <Route path='/companies/new' element={<AdminRoute><CompanyFormPage /></AdminRoute>} />
       <Route path='/companies/:id/edit' element={<AdminRoute><CompanyFormPage /></AdminRoute>} />
+      <Route path='/roles' element={<ManagerRoute><RolesPage /></ManagerRoute>} />
+      <Route path='/roles/new' element={<ManagerRoute><RoleFormPage /></ManagerRoute>} />
+      <Route path='/roles/:id/edit' element={<ManagerRoute><RoleFormPage /></ManagerRoute>} />
       <Route path='/teams' element={<ManagerRoute><TeamsPage /></ManagerRoute>} />
       <Route path='/teams/new' element={<ManagerAdminRoute><TeamFormPage /></ManagerAdminRoute>} />
       <Route path='/teams/:id/edit' element={<ManagerRoute><TeamFormPage /></ManagerRoute>} />

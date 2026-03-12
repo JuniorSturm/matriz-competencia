@@ -20,4 +20,5 @@ public interface ITeamRepository
     Task<IEnumerable<int>> GetTeamCompetencyIdsAsync(int teamId);
     Task SetTeamCompetenciesAsync(int teamId, IEnumerable<int> skillIds);
     Task<IEnumerable<int>> GetSkillIdsForUserTeamsAsync(Guid userId);
+    Task<int> CountTeamCompetenciesBySkillAsync(int skillId);
 }

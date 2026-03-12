@@ -398,6 +398,8 @@ export default function TeamFormPage() {
               fullWidth
               multiline
               rows={2}
+              inputProps={{ maxLength: 500 }}
+              helperText={`${description.length}/500`}
             />
             <Autocomplete
               options={companyCoordinators}

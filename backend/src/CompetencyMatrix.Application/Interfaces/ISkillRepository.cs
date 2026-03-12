@@ -20,4 +20,6 @@ public interface ISkillRepository
     Task                                 UpsertExpectationAsync(SkillExpectation expectation);
     Task                                 DeleteExpectationAsync(int skillId, int roleId, int gradeId);
     Task<Dictionary<int, string>>        GetSkillRoleNamesAsync(IEnumerable<int> skillIds, int roleId);
+    Task<int>                         CountExpectationsByRoleAsync(int roleId);
+    Task<int>                         CountDescriptionsByRoleAsync(int roleId);
 }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Alert, CircularProgress, Chip,
-  InputAdornment, Avatar, TablePagination,
+  InputAdornment, Avatar, TablePagination, Snackbar,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
@@ -22,6 +22,7 @@ export default function CompaniesPage() {
   const queryClient = useQueryClient()
   const [nameFilter, setNameFilter] = useState('')
   const [page, setPage] = useState(0)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const rowsPerPage = 50
 
   const { data: companies, isLoading, error } = useQuery({
@@ -47,8 +48,14 @@ export default function CompaniesPage() {
   )
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Confirma exclusão da empresa? Os usuários vinculados serão desassociados.')) return
-    await deleteMutation.mutateAsync(id)
+    if (!confirm('Confirma exclusão da empresa?')) return
+    setDeleteError(null)
+    try {
+      await deleteMutation.mutateAsync(id)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setDeleteError(e?.response?.data?.message ?? 'Não foi possível excluir. Existem registros associados a esta empresa ou uma regra de negócio impede a exclusão.')
+    }
   }
 
   if (isLoading) return <Box display='flex' justifyContent='center' py={8}><CircularProgress /></Box>
@@ -75,20 +82,22 @@ export default function CompaniesPage() {
         </Box>
       </PageHeader>
 
-      <TextField
-        placeholder='Buscar por nome...'
-        size='small'
-        value={nameFilter}
-        onChange={(e) => { setNameFilter(e.target.value); setPage(0) }}
-        sx={{ mb: 2, mt: 2, minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position='start'>
-              <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-            </InputAdornment>
-          ),
-        }}
-      />
+      <Box display='flex' flexWrap='wrap' gap={2} alignItems='center' sx={{ mb: 2, mt: 2 }}>
+        <TextField
+          placeholder='Buscar por nome...'
+          size='small'
+          value={nameFilter}
+          onChange={(e) => { setNameFilter(e.target.value); setPage(0) }}
+          sx={{ minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position='start'>
+                <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
 
       <Paper
         sx={{
@@ -181,10 +190,13 @@ export default function CompaniesPage() {
           onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
           rowsPerPageOptions={[50]}
-          labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
-          sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider' }}
-        />
-      </Paper>
-    </Box>
-  )
+labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
+        sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider' }}
+      />
+    </Paper>
+    <Snackbar open={!!deleteError} autoHideDuration={8000} onClose={() => setDeleteError(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+      <Alert severity='error' variant='filled' onClose={() => setDeleteError(null)}>{deleteError}</Alert>
+    </Snackbar>
+  </Box>
+)
 }

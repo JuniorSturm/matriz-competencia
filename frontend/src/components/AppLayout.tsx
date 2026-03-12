@@ -13,6 +13,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import LogoutIcon from '@mui/icons-material/Logout'
 import BusinessIcon from '@mui/icons-material/Business'
+import WorkIcon from '@mui/icons-material/Work'
 import GroupsIcon from '@mui/icons-material/Groups'
 
 import DarkModeIcon from '@mui/icons-material/DarkMode'
@@ -26,6 +27,7 @@ const DRAWER_WIDTH = 260
 const NAV_ITEMS = [
   { label: 'Dashboard',     icon: <DashboardIcon />,      path: '/',            managerOnly: false, adminOnly: false, coordinatorOk: true },
   { label: 'Empresas',      icon: <BusinessIcon />,       path: '/companies',   managerOnly: false, adminOnly: true,  coordinatorOk: false },
+  { label: 'Cargos',        icon: <WorkIcon />,            path: '/roles',       managerOnly: true,  adminOnly: false, coordinatorOk: true },
   { label: 'Colaboradores', icon: <PeopleIcon />,         path: '/users',       managerOnly: true,  adminOnly: false, coordinatorOk: true },
   { label: 'Competências',  icon: <SchoolIcon />,         path: '/skills',      managerOnly: true,  adminOnly: false, coordinatorOk: true },
   { label: 'Times',         icon: <GroupsIcon />,         path: '/teams',       managerOnly: true,  adminOnly: false, coordinatorOk: true },

@@ -25,7 +25,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useAssessments } from '../hooks/useAssessments'
 import { assessmentService } from '../services/assessmentService'
 import { teamService } from '../services/teamService'
-import type { AssessmentResponse } from '../types'
+import type { AssessmentResponse, UserResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 
@@ -133,7 +133,7 @@ export default function DashboardPage() {
   const totalManagers = users?.filter((u) => u.isManager).length ?? 0
 
   /* ── Coordinator: fetch my teams (backend filtra por times do usuário) ───────────────── */
-  const { data: myTeams, isLoading: teamsLoading } = useQuery({
+  const { data: myTeams } = useQuery({
     queryKey: ['teams'],
     queryFn: () => teamService.getAll(),
     enabled: isCoordinator,
@@ -153,7 +153,7 @@ export default function DashboardPage() {
   const memberIdsByTeam = useMemo(() => {
     const map: Record<number, string[]> = {}
     if (!isCoordinator || !myTeams?.length) return map
-    myTeams.forEach((t, i) => {
+    myTeams.forEach((_, i) => {
       const data = teamDetailsQueries[i]?.data
       if (data?.members) map[data.id] = data.members.map((m) => m.userId)
     })
@@ -183,8 +183,8 @@ export default function DashboardPage() {
 
   const coordinatorTeamsLoaded =
     isCoordinator &&
-    myTeams?.length > 0 &&
-    teamDetailsQueries.length === myTeams.length &&
+    (myTeams?.length ?? 0) > 0 &&
+    teamDetailsQueries.length === (myTeams?.length ?? 0) &&
     teamDetailsQueries.every((q) => q.isSuccess)
   const coordinatorAssessmentsLoaded =
     isCoordinator &&
@@ -206,7 +206,7 @@ export default function DashboardPage() {
     criticalGapUsers: number
     byRole: Record<string, { total: number; gapOk: number; users: number; aderencia: number; avgGap: number }>
     criticalSkills: { name: string; cat: string; count: number; totalGap: number }[]
-    ranking: { user: typeof users[0]; assessments: AssessmentResponse[]; total: number; gapOk: number; gap1: number; gap2plus: number; avgGap: number; aderencia: number }[]
+    ranking: { user: UserResponse; assessments: AssessmentResponse[]; total: number; gapOk: number; gap1: number; gap2plus: number; avgGap: number; aderencia: number }[]
   }
 
   const teamSummaries = useMemo((): TeamSummaryData[] => {
@@ -218,7 +218,7 @@ export default function DashboardPage() {
       assessmentsByUserId.set(u.id, a)
     })
 
-    return myTeams.map((t) => {
+    return (myTeams ?? []).map((t) => {
       const memberIds = memberIdsByTeam[t.id] ?? []
       const userSummaries = memberIds
         .map((userId) => {

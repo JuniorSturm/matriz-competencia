@@ -12,4 +12,5 @@ public interface IUserRepository
     Task                    UpdateAsync(User user);
     Task                    UpdatePasswordAsync(Guid id, string hashedPassword);
     Task                    DeleteAsync(Guid id);
+    Task<int>             CountByRoleAsync(int roleId);
 }

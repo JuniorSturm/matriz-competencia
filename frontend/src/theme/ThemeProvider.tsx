@@ -50,10 +50,10 @@ const darkPalette = {
 } as const
 
 export type ThemeMode = 'light' | 'dark'
-type PaletteTokens = typeof lightPalette
+type PaletteTokens = { readonly [K in keyof typeof lightPalette]: string }
 
 export function getTokens(mode: ThemeMode): PaletteTokens {
-  return mode === 'dark' ? darkPalette : lightPalette
+  return (mode === 'dark' ? darkPalette : lightPalette) as PaletteTokens
 }
 
 /* ─── Build MUI theme for a given mode ───────────────────────────────────── */

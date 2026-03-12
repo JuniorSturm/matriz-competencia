@@ -6,13 +6,24 @@ namespace CompetencyMatrix.Application.Services;
 
 public class CompanyService : ICompanyService
 {
-    private readonly ICompanyRepository _repo;
-    private readonly IUserRepository _userRepo;
+    private readonly ICompanyRepository   _repo;
+    private readonly IUserRepository      _userRepo;
+    private readonly ITeamRepository      _teamRepo;
+    private readonly IRoleGradeRepository _roleRepo;
+    private readonly ISkillRepository     _skillRepo;
 
-    public CompanyService(ICompanyRepository repo, IUserRepository userRepo)
+    public CompanyService(
+        ICompanyRepository repo,
+        IUserRepository userRepo,
+        ITeamRepository teamRepo,
+        IRoleGradeRepository roleRepo,
+        ISkillRepository skillRepo)
     {
         _repo     = repo;
         _userRepo = userRepo;
+        _teamRepo = teamRepo;
+        _roleRepo = roleRepo;
+        _skillRepo = skillRepo;
     }
 
     public async Task<CompanyResponse?> GetByIdAsync(int id)
@@ -92,7 +103,29 @@ public class CompanyService : ICompanyService
         }
     }
 
-    public Task DeleteAsync(int id) => _repo.DeleteAsync(id);
+    public async Task DeleteAsync(int id)
+    {
+        var company = await _repo.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Empresa {id} não encontrada.");
+
+        var users = await _repo.GetUsersByCompanyAsync(id);
+        if (users.Any())
+            throw new InvalidOperationException("Não é possível excluir a empresa: existem colaboradores vinculados. Remova ou reatribua os colaboradores antes de excluir.");
+
+        var teams = await _teamRepo.GetAllByCompanyAsync(id);
+        if (teams.Any())
+            throw new InvalidOperationException("Não é possível excluir a empresa: existem times vinculados. Remova os times antes de excluir a empresa.");
+
+        var roles = await _roleRepo.GetRolesByCompanyAsync(id);
+        if (roles.Any())
+            throw new InvalidOperationException("Não é possível excluir a empresa: existem cargos vinculados. Remova os cargos antes de excluir a empresa.");
+
+        var skills = await _skillRepo.GetAllByCompanyAsync(id);
+        if (skills.Any())
+            throw new InvalidOperationException("Não é possível excluir a empresa: existem competências vinculadas. Remova as competências antes de excluir a empresa.");
+
+        await _repo.DeleteAsync(id);
+    }
 
     public async Task AddUserAsync(int companyId, Guid userId)
     {

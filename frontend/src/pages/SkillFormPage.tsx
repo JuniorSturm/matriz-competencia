@@ -3,20 +3,22 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box, Button, TextField, Typography, Paper, CircularProgress, Alert,
   Divider, FormControl, InputLabel, Select, MenuItem, Checkbox, ListItemText,
-  OutlinedInput, Chip, Accordion, AccordionSummary, AccordionDetails, FormHelperText,
+  OutlinedInput, Chip, FormHelperText,
+  Avatar, Tabs, Tab, Snackbar,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import SchoolIcon from '@mui/icons-material/School'
 import { useSkills, useCreateSkill, useUpdateSkill, useSkillDescriptions, useUpsertDescription, useSkillExpectations, useUpsertExpectation } from '../hooks/useSkills'
-import { useCategories, useCargos, useNiveis } from '../hooks/useRoleGrade'
+import { useCategories, useRolesByCompany, useNiveis } from '../hooks/useRoleGrade'
 import { useCompanies } from '../hooks/useCompanies'
 import { useAuth } from '../hooks/useAuth'
 import type { CreateSkillRequest, SkillResponse, CompetencyLevel } from '../types'
 import { LEVELS } from '../types'
 import { skillService } from '../services/skillService'
 import PageHeader from '../components/PageHeader'
+import { BRAND } from '../theme/ThemeProvider'
 
 const DESC_LEVELS = ['BRONZE', 'PRATA', 'OURO'] as const
 
@@ -34,7 +36,13 @@ export default function SkillFormPage() {
   const { data: descriptions, isLoading: descLoading } = useSkillDescriptions(skillId)
   const { data: expectations } = useSkillExpectations(skillId)
   const { data: categories } = useCategories()
-  const { data: cargos } = useCargos()
+  const [form, setForm] = useState<{ name: string; category: string; companyId: number | null }>({
+    name: '',
+    category: '',
+    companyId: isAdmin ? null : userCompanyId,
+  })
+  const companyIdForRoles = form.companyId ?? user?.companyId ?? null
+  const { data: roles } = useRolesByCompany(companyIdForRoles)
   const { data: niveis } = useNiveis()
   const { data: companies } = useCompanies()
 
@@ -42,19 +50,16 @@ export default function SkillFormPage() {
   const updateMutation = useUpdateSkill()
   const upsertDescMutation = useUpsertDescription()
   const upsertExpMutation = useUpsertExpectation()
-
-  const [form, setForm] = useState<{ name: string; category: string; companyId: number | null }>({
-    name: '',
-    category: '',
-    companyId: isAdmin ? null : userCompanyId,
-  })
   const [descForm, setDescForm] = useState<Record<number, Record<string, string>>>({})
+  const [descTabByRole, setDescTabByRole] = useState<Record<number, number>>({})
+  const [cargoTabIndex, setCargoTabIndex] = useState(0)
   const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([])
   const [roleGradeLevels, setRoleGradeLevels] = useState<Record<number, Record<number, CompetencyLevel | ''>>>({})
   const [synced, setSynced] = useState(false)
   const [descSynced, setDescSynced] = useState(false)
   const [expSynced, setExpSynced] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [validationErrorMsg, setValidationErrorMsg] = useState<string | null>(null)
 
   const existingSkill: SkillResponse | undefined = isEdit
     ? skills?.find((s) => s.id === skillId)
@@ -115,13 +120,42 @@ export default function SkillFormPage() {
   const hasMissingDescs = (roleId: number) =>
     DESC_LEVELS.some((lvl) => !(descForm[roleId]?.[lvl] ?? '').trim())
 
-  const hasCargoErrors = selectedRoleIds.some((rid) => hasMissingGrades(rid) || hasMissingDescs(rid))
+  const hasRoleErrors = selectedRoleIds.some((rid) => hasMissingGrades(rid) || hasMissingDescs(rid))
 
   const handleSave = async () => {
     setSubmitted(true)
+    setValidationErrorMsg(null)
     if (!form.name.trim() || !form.category) return
     if (selectedRoleIds.length === 0) return
-    if (hasCargoErrors) return
+    if (hasRoleErrors) {
+      let firstErrorRoleIdx = 0
+      const descTabUpdates: Record<number, number> = {}
+      const messageParts: string[] = []
+      for (let i = 0; i < selectedRoleIds.length; i++) {
+        const roleId = selectedRoleIds[i]
+        const role = roles?.find((r) => r.id === roleId)
+        const roleName = role?.nome ?? `Cargo ${roleId}`
+        const missingGrades = sortedGrades.filter((g) => !roleGradeLevels[roleId]?.[g.id])
+        const missingDescs = DESC_LEVELS.filter((l) => !(descForm[roleId]?.[l] ?? '').trim())
+        if (missingGrades.length > 0 || missingDescs.length > 0) {
+          if (messageParts.length === 0) firstErrorRoleIdx = i
+          const roleParts: string[] = []
+          if (missingGrades.length > 0) roleParts.push(`nível esperado (${missingGrades.map((g) => g.nome).join(', ')})`)
+          if (missingDescs.length > 0) {
+            roleParts.push(`descrição ${missingDescs.join(', ')}`)
+            if (descTabUpdates[roleId] === undefined) {
+              const idx = DESC_LEVELS.findIndex((l) => !(descForm[roleId]?.[l] ?? '').trim())
+              if (idx >= 0) descTabUpdates[roleId] = idx
+            }
+          }
+          messageParts.push(`Aba "${roleName}": ${roleParts.join('; ')}`)
+        }
+      }
+      setCargoTabIndex(firstErrorRoleIdx)
+      setDescTabByRole((prev) => ({ ...prev, ...descTabUpdates }))
+      setValidationErrorMsg(`Preencha os campos obrigatórios. ${messageParts.join('. ')}`)
+      return
+    }
     if (!isEdit && !form.companyId) return
 
     let savedSkillId = skillId
@@ -216,8 +250,15 @@ export default function SkillFormPage() {
       </PageHeader>
 
       <Box sx={{ flex: 1, mb: '80px' }}>
-        <Box display='flex' flexDirection='column' gap={2.5}>
-          {!isEdit && isAdmin && (
+        <Paper sx={{ p: 3, borderRadius: '16px', mb: 3 }}>
+          <Box display='flex' alignItems='center' gap={1.5} mb={2.5}>
+            <Avatar sx={{ bgcolor: alpha(BRAND.cyan, 0.15), color: BRAND.cyan }}>
+              <SchoolIcon />
+            </Avatar>
+            <Typography variant='h6' fontWeight={600}>Dados da Competência</Typography>
+          </Box>
+          <Box display='flex' flexDirection='column' gap={2.5}>
+            {!isEdit && isAdmin && (
             <FormControl fullWidth required error={submitted && !form.companyId}>
               <InputLabel>Empresa</InputLabel>
               <Select
@@ -272,16 +313,16 @@ export default function SkillFormPage() {
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {(selected as number[]).map((rid) => {
-                    const cargo = cargos?.find((c) => c.id === rid)
-                    return <Chip key={rid} label={cargo?.nome ?? rid} size='small' />
+                    const role = roles?.find((r) => r.id === rid)
+                    return <Chip key={rid} label={role?.nome ?? rid} size='small' />
                   })}
                 </Box>
               )}
             >
-              {cargos?.map((c) => (
-                <MenuItem key={c.id} value={c.id}>
-                  <Checkbox checked={selectedRoleIds.includes(c.id)} />
-                  <ListItemText primary={c.nome} />
+              {roles?.map((r) => (
+                <MenuItem key={r.id} value={r.id}>
+                  <Checkbox checked={selectedRoleIds.includes(r.id)} />
+                  <ListItemText primary={r.nome} />
                 </MenuItem>
               ))}
             </Select>
@@ -290,56 +331,87 @@ export default function SkillFormPage() {
 
           {selectedRoleIds.length > 0 && sortedGrades.length > 0 && (
             <Box>
-              {selectedRoleIds.map((roleId) => {
-                const cargo = cargos?.find((c) => c.id === roleId)
+              <Tabs
+                value={Math.min(cargoTabIndex, selectedRoleIds.length - 1)}
+                onChange={(_, v: number) => setCargoTabIndex(v)}
+                sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, minHeight: 44 }}
+              >
+                {selectedRoleIds.map((roleId, idx) => {
+                  const role = roles?.find((r) => r.id === roleId)
+                  return (
+                    <Tab
+                      key={roleId}
+                      label={role?.nome ?? `Cargo ${roleId}`}
+                      id={`cargo-tab-${idx}`}
+                      aria-controls={`cargo-panel-${idx}`}
+                      sx={{ minHeight: 44, py: 1.5 }}
+                    />
+                  )
+                })}
+              </Tabs>
+              {selectedRoleIds.map((roleId, idx) => {
+                const activeCargoIdx = Math.min(cargoTabIndex, selectedRoleIds.length - 1)
+                if (idx !== activeCargoIdx) return null
+                const role = roles?.find((r) => r.id === roleId)
                 return (
-                  <Accordion key={roleId} defaultExpanded>
-                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Typography fontWeight={600}>{cargo?.nome ?? `Cargo ${roleId}`}</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Box display='flex' gap={2} flexWrap='wrap'>
-                        {sortedGrades.map((grade) => {
-                          const val = roleGradeLevels[roleId]?.[grade.id] ?? ''
-                          return (
-                            <FormControl key={grade.id} sx={{ minWidth: 140, flex: 1 }} required error={submitted && !val}>
-                              <InputLabel>{grade.nome}</InputLabel>
-                              <Select
-                                value={val}
-                                label={grade.nome}
-                                onChange={(e) =>
-                                  handleGradeLevel(roleId, grade.id, e.target.value as CompetencyLevel | '')
-                                }
-                                size='small'
-                              >
-                                <MenuItem value=''><em>—</em></MenuItem>
-                                {LEVELS.map((l) => (
-                                  <MenuItem key={l} value={l}>{l}</MenuItem>
-                                ))}
-                              </Select>
-                              {submitted && !val && <FormHelperText>Obrigatório</FormHelperText>}
-                            </FormControl>
-                          )
-                        })}
-                      </Box>
+                  <Box key={roleId} role='tabpanel' id={`cargo-panel-${idx}`} aria-labelledby={`cargo-tab-${idx}`}>
+                    <Typography variant='subtitle2' fontWeight={600} color='text.secondary' sx={{ mb: 1.5 }}>
+                      Nível esperado por graduação — {role?.nome ?? `Cargo ${roleId}`}
+                    </Typography>
+                    <Box display='flex' gap={2} flexWrap='wrap'>
+                      {sortedGrades.map((grade) => {
+                        const val = roleGradeLevels[roleId]?.[grade.id] ?? ''
+                        return (
+                          <FormControl key={grade.id} sx={{ minWidth: 140, flex: 1 }} required error={submitted && !val}>
+                            <InputLabel>{grade.nome}</InputLabel>
+                            <Select
+                              value={val}
+                              label={grade.nome}
+                              onChange={(e) =>
+                                handleGradeLevel(roleId, grade.id, e.target.value as CompetencyLevel | '')
+                              }
+                              size='small'
+                            >
+                              <MenuItem value=''><em>—</em></MenuItem>
+                              {LEVELS.map((l) => (
+                                <MenuItem key={l} value={l}>{l}</MenuItem>
+                              ))}
+                            </Select>
+                            {submitted && !val && <FormHelperText>Obrigatório</FormHelperText>}
+                          </FormControl>
+                        )
+                      })}
+                    </Box>
 
-                      <Divider sx={{ my: 2 }} />
-                      <Typography variant='subtitle2' fontWeight={600} color='text.secondary' sx={{ mb: 1 }}>
-                        Descrições por Nível
-                      </Typography>
-                      {isEdit && descLoading && !descSynced ? (
-                        <CircularProgress size={24} sx={{ alignSelf: 'center' }} />
-                      ) : (
-                        <Box display='flex' flexDirection='column' gap={1.5}>
-                          {DESC_LEVELS.map((level) => {
-                            const val = (descForm[roleId]?.[level] ?? '').trim()
-                            return (
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant='subtitle2' fontWeight={600} color='text.secondary' sx={{ mb: 1 }}>
+                      Descrições por Nível
+                    </Typography>
+                    {isEdit && descLoading && !descSynced ? (
+                      <CircularProgress size={24} sx={{ alignSelf: 'center' }} />
+                    ) : (
+                      <Box>
+                        <Tabs
+                          value={descTabByRole[roleId] ?? 0}
+                          onChange={(_, v: number) => setDescTabByRole((prev) => ({ ...prev, [roleId]: v }))}
+                          sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, minHeight: 40 }}
+                        >
+                          {DESC_LEVELS.map((level, idxLvl) => (
+                            <Tab key={level} label={level} id={`desc-tab-${roleId}-${idxLvl}`} aria-controls={`desc-panel-${roleId}-${idxLvl}`} sx={{ minHeight: 40, py: 1 }} />
+                          ))}
+                        </Tabs>
+                        {DESC_LEVELS.map((level, idxLvl) => {
+                          const val = (descForm[roleId]?.[level] ?? '').trim()
+                          const text = descForm[roleId]?.[level] ?? ''
+                          const isActive = (descTabByRole[roleId] ?? 0) === idxLvl
+                          if (!isActive) return null
+                          return (
+                            <Box key={level} role='tabpanel' id={`desc-panel-${roleId}-${idxLvl}`} aria-labelledby={`desc-tab-${roleId}-${idxLvl}`}>
                               <TextField
-                                key={level}
-                                label={level}
+                                label={`Descrição — ${level}`}
                                 multiline
-                                minRows={2}
-                                value={descForm[roleId]?.[level] ?? ''}
+                                minRows={6}
+                                value={text}
                                 onChange={(e) =>
                                   setDescForm((prev) => ({
                                     ...prev,
@@ -350,20 +422,22 @@ export default function SkillFormPage() {
                                 size='small'
                                 required
                                 error={submitted && !val}
-                                helperText={submitted && !val ? 'Campo obrigatório' : ''}
+                                inputProps={{ maxLength: 5000 }}
+                                helperText={submitted && !val ? 'Campo obrigatório' : `${text.length}/5000`}
+                                sx={{ mt: 0 }}
                               />
-                            )
-                          })}
-                        </Box>
-                      )}
-                    </AccordionDetails>
-                  </Accordion>
+                            </Box>
+                          )
+                        })}
+                      </Box>
+                    )}
+                  </Box>
                 )
               })}
             </Box>
           )}
-
-        </Box>
+          </Box>
+        </Paper>
       </Box>
 
       <Paper
@@ -395,6 +469,18 @@ export default function SkillFormPage() {
           Salvar
         </Button>
       </Paper>
+
+      <Snackbar
+        open={!!validationErrorMsg}
+        autoHideDuration={12000}
+        onClose={() => setValidationErrorMsg(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ mt: 2 }}
+      >
+        <Alert severity='warning' variant='filled' onClose={() => setValidationErrorMsg(null)}>
+          {validationErrorMsg}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

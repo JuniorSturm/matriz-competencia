@@ -71,6 +71,18 @@ public class SkillRepository : ISkillRepository
         await conn.ExecuteAsync("DELETE FROM skills WHERE id = @id", new { id });
     }
 
+    public async Task<int> CountExpectationsByRoleAsync(int roleId)
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM skill_expectations WHERE role_id = @roleId", new { roleId });
+    }
+
+    public async Task<int> CountDescriptionsByRoleAsync(int roleId)
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM skill_descriptions WHERE role_id = @roleId", new { roleId });
+    }
+
     public async Task<IEnumerable<SkillDescription>> GetDescriptionsAsync(int skillId)
     {
         using var conn = _ctx.CreateConnection();

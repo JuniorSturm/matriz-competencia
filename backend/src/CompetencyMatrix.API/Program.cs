@@ -29,6 +29,7 @@ builder.Services.AddScoped<IUserService,       UserService>();
 builder.Services.AddScoped<ISkillService,      SkillService>();
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IRoleGradeService,  RoleGradeService>();
+builder.Services.AddScoped<IRoleService,        RoleService>();
 builder.Services.AddScoped<ICompanyService,    CompanyService>();
 builder.Services.AddScoped<ITeamService,       TeamService>();
 builder.Services.AddSingleton<IJwtService,     JwtService>();

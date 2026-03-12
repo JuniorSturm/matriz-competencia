@@ -3,21 +3,29 @@ import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Alert, CircularProgress, Chip,
-  InputAdornment,
+  InputAdornment, FormControl, InputLabel, Select, MenuItem, Snackbar,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import { useSkills, useDeleteSkill } from '../hooks/useSkills'
+import { useAuth } from '../hooks/useAuth'
+import { useCompanies } from '../hooks/useCompanies'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
 
 export default function SkillsPage() {
   const navigate = useNavigate()
-  const { data: skills, isLoading, error } = useSkills()
+  const { user } = useAuth()
+  const isAdmin = user?.isAdmin ?? false
+  const [companyFilter, setCompanyFilter] = useState<number | ''>('')
+  const companyIdForApi = isAdmin && companyFilter !== '' ? (companyFilter as number) : undefined
+  const { data: skills, isLoading, error } = useSkills(undefined, companyIdForApi)
+  const { data: companies = [] } = useCompanies(isAdmin)
   const deleteMutation = useDeleteSkill()
   const [nameFilter, setNameFilter] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const filteredSkills = useMemo(() => {
     if (!skills) return []
@@ -27,8 +35,14 @@ export default function SkillsPage() {
   }, [skills, nameFilter])
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Confirma exclusão?')) return
-    await deleteMutation.mutateAsync(id)
+    if (!confirm('Confirma exclusão da competência?')) return
+    setDeleteError(null)
+    try {
+      await deleteMutation.mutateAsync(id)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setDeleteError(e?.response?.data?.message ?? 'Não foi possível excluir. Existem registros associados a esta competência ou uma regra de negócio impede a exclusão.')
+    }
   }
 
   if (isLoading) return <Box display='flex' justifyContent='center' py={8}><CircularProgress /></Box>
@@ -55,20 +69,37 @@ export default function SkillsPage() {
         </Box>
       </PageHeader>
 
-      <TextField
-        placeholder='Buscar por nome...'
-        size='small'
-        value={nameFilter}
-        onChange={(e) => setNameFilter(e.target.value)}
-        sx={{ mb: 2, mt: 2, minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position='start'>
-              <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-            </InputAdornment>
-          ),
-        }}
-      />
+      <Box display='flex' flexWrap='wrap' gap={2} alignItems='center' sx={{ mb: 2, mt: 2 }}>
+        {isAdmin && (
+          <FormControl size='small' sx={{ minWidth: 220 }}>
+            <InputLabel>Empresa</InputLabel>
+            <Select
+              value={companyFilter === '' ? '' : String(companyFilter)}
+              label='Empresa'
+              onChange={(e) => { const v = e.target.value; setCompanyFilter(v === '' ? '' : Number(v)) }}
+            >
+              <MenuItem value=''>Todas</MenuItem>
+              {companies.filter((c) => c.isActive).map((c) => (
+                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+        <TextField
+          placeholder='Buscar por nome...'
+          size='small'
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          sx={{ minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position='start'>
+                <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
 
       <TableContainer
         component={Paper}
@@ -119,6 +150,9 @@ export default function SkillsPage() {
           </TableBody>
         </Table>
       </TableContainer>
+      <Snackbar open={!!deleteError} autoHideDuration={8000} onClose={() => setDeleteError(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity='error' variant='filled' onClose={() => setDeleteError(null)}>{deleteError}</Alert>
+      </Snackbar>
     </Box>
   )
 }

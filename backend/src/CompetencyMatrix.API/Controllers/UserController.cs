@@ -61,7 +61,14 @@ public class UserController : ControllerBase
     [Authorize(Roles = "MANAGER,ADMIN")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        await _service.DeleteAsync(id);
-        return NoContent();
+        try
+        {
+            await _service.DeleteAsync(id);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }

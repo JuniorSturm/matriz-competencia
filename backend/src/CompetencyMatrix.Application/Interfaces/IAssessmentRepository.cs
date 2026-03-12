@@ -10,4 +10,5 @@ public interface IAssessmentRepository
     Task<IEnumerable<AssessmentMatrixRow>> GetUserTeamMatrixAsync(Guid userId, int roleId, int gradeId, IEnumerable<int> skillIds);
     Task                              UpsertAsync(SkillAssessment assessment);
     Task                              DeleteAsync(Guid userId, int skillId);
+    Task<int>                       CountBySkillAsync(int skillId);
 }

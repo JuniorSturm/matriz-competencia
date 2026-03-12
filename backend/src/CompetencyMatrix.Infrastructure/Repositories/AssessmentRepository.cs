@@ -85,4 +85,10 @@ public class AssessmentRepository : IAssessmentRepository
             new { userId, skillId }
         );
     }
+
+    public async Task<int> CountBySkillAsync(int skillId)
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM skill_assessments WHERE skill_id = @skillId", new { skillId });
+    }
 }

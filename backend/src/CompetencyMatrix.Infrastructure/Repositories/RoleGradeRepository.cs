@@ -13,7 +13,46 @@ public class RoleGradeRepository : IRoleGradeRepository
     public async Task<IEnumerable<Role>> GetAllRolesAsync()
     {
         using var conn = _ctx.CreateConnection();
-        return await conn.QueryAsync<Role>("SELECT id, name FROM roles ORDER BY name");
+        return await conn.QueryAsync<Role>(
+            "SELECT id, name, description, company_id AS CompanyId FROM roles ORDER BY name");
+    }
+
+    public async Task<IEnumerable<Role>> GetRolesByCompanyAsync(int companyId)
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.QueryAsync<Role>(
+            "SELECT id, name, description, company_id AS CompanyId FROM roles WHERE company_id = @companyId ORDER BY name",
+            new { companyId });
+    }
+
+    public async Task<Role?> GetRoleByIdAsync(int id)
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.QueryFirstOrDefaultAsync<Role>(
+            "SELECT id, name, description, company_id AS CompanyId FROM roles WHERE id = @id",
+            new { id });
+    }
+
+    public async Task<int> CreateRoleAsync(Role role)
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.ExecuteScalarAsync<int>(
+            "INSERT INTO roles (name, description, company_id) VALUES (@Name, @Description, @CompanyId) RETURNING id",
+            new { role.Name, role.Description, role.CompanyId });
+    }
+
+    public async Task UpdateRoleAsync(Role role)
+    {
+        using var conn = _ctx.CreateConnection();
+        await conn.ExecuteAsync(
+            "UPDATE roles SET name = @Name, description = @Description WHERE id = @Id",
+            new { role.Id, role.Name, role.Description });
+    }
+
+    public async Task DeleteRoleAsync(int id)
+    {
+        using var conn = _ctx.CreateConnection();
+        await conn.ExecuteAsync("DELETE FROM roles WHERE id = @id", new { id });
     }
 
     public async Task<IEnumerable<Grade>> GetAllGradesAsync()

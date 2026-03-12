@@ -2,8 +2,17 @@
 export interface LoginRequest  { email: string; password: string }
 export interface LoginResponse { id: string; token: string; name: string; isManager: boolean; isAdmin: boolean; isCoordinator: boolean; companyId: number | null }
 
-// ─── Cargos / Níveis ──────────────────────────────────────────────────────────
-export interface CargoOption { id: number; nome: string }
+// ─── Roles (cargos) / Níveis ────────────────────────────────────────────────────
+export interface RoleOption { id: number; nome: string }
+export interface RoleDetailResponse {
+  id: number
+  nome: string
+  descricao: string | null
+  companyId: number
+  companyName: string | null
+}
+export interface CreateRoleRequest { nome: string; descricao?: string | null; companyId?: number | null }
+export interface UpdateRoleRequest { nome: string; descricao?: string | null }
 export interface NivelOption { id: number; nome: string; ordinal: number }
 export interface CategoryResponse { id: number; nome: string }
 

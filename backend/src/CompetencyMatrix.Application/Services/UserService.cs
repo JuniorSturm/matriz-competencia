@@ -7,15 +7,17 @@ namespace CompetencyMatrix.Application.Services;
 
 public class UserService : IUserService
 {
-    private readonly IUserRepository _repo;
-    private readonly ITeamRepository _teamRepo;
-    private readonly ICompanyRepository _companyRepo;
+    private readonly IUserRepository       _repo;
+    private readonly ITeamRepository       _teamRepo;
+    private readonly ICompanyRepository    _companyRepo;
+    private readonly IAssessmentRepository  _assessmentRepo;
 
-    public UserService(IUserRepository repo, ITeamRepository teamRepo, ICompanyRepository companyRepo)
+    public UserService(IUserRepository repo, ITeamRepository teamRepo, ICompanyRepository companyRepo, IAssessmentRepository assessmentRepo)
     {
-        _repo        = repo;
-        _teamRepo    = teamRepo;
-        _companyRepo = companyRepo;
+        _repo          = repo;
+        _teamRepo      = teamRepo;
+        _companyRepo   = companyRepo;
+        _assessmentRepo = assessmentRepo;
     }
 
     public async Task<UserResponse?> GetByIdAsync(Guid id)
@@ -181,7 +183,18 @@ public class UserService : IUserService
         await _repo.UpdatePasswordAsync(id, hashed);
     }
 
-    public Task DeleteAsync(Guid id) => _repo.DeleteAsync(id);
+    public async Task DeleteAsync(Guid id)
+    {
+        var teamCount = await _teamRepo.CountTeamsForUserAsync(id);
+        if (teamCount > 0)
+            throw new InvalidOperationException("Não é possível excluir o colaborador: ele está vinculado a um ou mais times. Remova-o dos times antes de excluir.");
+
+        var assessments = await _assessmentRepo.GetByUserAsync(id);
+        if (assessments.Any())
+            throw new InvalidOperationException("Não é possível excluir o colaborador: existem avaliações de competência vinculadas. Remova as avaliações antes de excluir.");
+
+        await _repo.DeleteAsync(id);
+    }
 
     public async Task<bool> CanSeeUserAsync(Guid currentUserId, Guid targetUserId)
     {

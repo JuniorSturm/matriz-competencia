@@ -93,8 +93,19 @@ public class SkillController : ControllerBase
     [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
     public async Task<IActionResult> Delete(int id)
     {
-        await _service.DeleteAsync(id);
-        return NoContent();
+        try
+        {
+            await _service.DeleteAsync(id);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Competência não encontrada." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPost("expectations")]
@@ -131,7 +142,14 @@ public class SkillController : ControllerBase
     [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
     public async Task<IActionResult> UpsertDescription([FromBody] UpsertDescriptionRequest request)
     {
-        await _service.UpsertDescriptionAsync(request);
-        return Ok();
+        try
+        {
+            await _service.UpsertDescriptionAsync(request);
+            return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }

@@ -12,10 +12,6 @@ public class RoleGradeController : ControllerBase
 
     public RoleGradeController(IRoleGradeService service) => _service = service;
 
-    [HttpGet("cargos")]
-    public async Task<IActionResult> GetCargos() =>
-        Ok(await _service.GetAllRolesAsync());
-
     [HttpGet("niveis")]
     public async Task<IActionResult> GetNiveis() =>
         Ok(await _service.GetAllGradesAsync());

@@ -2,8 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { skillService } from '../services/skillService'
 import type { CreateSkillRequest, UpdateSkillRequest, UpsertExpectationRequest, UpsertDescriptionRequest } from '../types'
 
-export const useSkills = (roleId?: number) =>
-  useQuery({ queryKey: ['skills', roleId], queryFn: () => skillService.getAll(roleId) })
+export const useSkills = (roleId?: number, companyId?: number) =>
+  useQuery({ queryKey: ['skills', roleId, companyId], queryFn: () => skillService.getAll(roleId, companyId) })
 
 export const useSkillDescriptions = (skillId: number | null) =>
   useQuery({

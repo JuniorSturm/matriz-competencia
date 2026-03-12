@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Alert, CircularProgress, Chip,
-  InputAdornment, TablePagination,
+  InputAdornment, TablePagination, FormControl, InputLabel, Select, MenuItem,
+  Snackbar,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import { useUsers, useDeleteUser } from '../hooks/useUsers'
 import { useAuth } from '../hooks/useAuth'
+import { useCompanies } from '../hooks/useCompanies'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
@@ -36,21 +38,28 @@ export default function UsersPage() {
   const { data: users, isLoading, error } = useUsers()
   const deleteMutation = useDeleteUser()
   const { user: loggedUser } = useAuth()
+  const [companyFilter, setCompanyFilter] = useState<number | ''>('')
   const [nameFilter, setNameFilter] = useState('')
   const [page, setPage] = useState(0)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const rowsPerPage = 50
 
   const isLoggedAdmin = loggedUser?.isAdmin ?? false
+  const { data: companies = [] } = useCompanies(isLoggedAdmin)
   const isLoggedGestor = (loggedUser?.isManager ?? false) && !isLoggedAdmin
   const isLoggedCoordinator = (loggedUser?.isCoordinator ?? false) && !isLoggedAdmin && !(loggedUser?.isManager ?? false)
   const canDelete = isLoggedAdmin || isLoggedGestor
 
   const filteredUsers = useMemo(() => {
     if (!users) return []
-    if (!nameFilter.trim()) return users
+    let list = users
+    if (isLoggedAdmin && companyFilter !== '') {
+      list = list.filter((u) => u.companyId !== null && u.companyId === companyFilter)
+    }
+    if (!nameFilter.trim()) return list
     const lower = nameFilter.toLowerCase()
-    return users.filter((u) => u.name.toLowerCase().includes(lower))
-  }, [users, nameFilter])
+    return list.filter((u) => u.name.toLowerCase().includes(lower))
+  }, [users, nameFilter, isLoggedAdmin, companyFilter])
 
   const paginatedUsers = useMemo(
     () => filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
@@ -58,8 +67,14 @@ export default function UsersPage() {
   )
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Confirma exclusão?')) return
-    await deleteMutation.mutateAsync(id)
+    if (!confirm('Confirma exclusão do colaborador?')) return
+    setDeleteError(null)
+    try {
+      await deleteMutation.mutateAsync(id)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setDeleteError(e?.response?.data?.message ?? 'Não foi possível excluir. Existem registros associados a este colaborador ou uma regra de negócio impede a exclusão.')
+    }
   }
 
   if (isLoading) return <Box display='flex' justifyContent='center' py={8}><CircularProgress /></Box>
@@ -86,20 +101,37 @@ export default function UsersPage() {
         </Box>
       </PageHeader>
 
-      <TextField
-        placeholder='Buscar por nome...'
-        size='small'
-        value={nameFilter}
-        onChange={(e) => { setNameFilter(e.target.value); setPage(0) }}
-        sx={{ mb: 2, mt: 2, minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position='start'>
-              <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-            </InputAdornment>
-          ),
-        }}
-      />
+      <Box display='flex' flexWrap='wrap' gap={2} alignItems='center' sx={{ mb: 2, mt: 2 }}>
+        {isLoggedAdmin && (
+          <FormControl size='small' sx={{ minWidth: 220 }}>
+            <InputLabel>Empresa</InputLabel>
+            <Select
+              value={companyFilter === '' ? '' : String(companyFilter)}
+              label='Empresa'
+              onChange={(e) => { const v = e.target.value; setCompanyFilter(v === '' ? '' : Number(v)); setPage(0) }}
+            >
+              <MenuItem value=''>Todas</MenuItem>
+              {companies.filter((c) => c.isActive).map((c) => (
+                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+        <TextField
+          placeholder='Buscar por nome...'
+          size='small'
+          value={nameFilter}
+          onChange={(e) => { setNameFilter(e.target.value); setPage(0) }}
+          sx={{ minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position='start'>
+                <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
 
       <Paper
         sx={{
@@ -182,6 +214,9 @@ export default function UsersPage() {
           sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider' }}
         />
       </Paper>
+      <Snackbar open={!!deleteError} autoHideDuration={8000} onClose={() => setDeleteError(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity='error' variant='filled' onClose={() => setDeleteError(null)}>{deleteError}</Alert>
+      </Snackbar>
     </Box>
   )
 }

@@ -69,6 +69,8 @@ public class TeamService : ITeamService
 
     public async Task<IEnumerable<TeamListItemResponse>> GetAllByCompanyAsync(int companyId)
     {
+        var company = await _companyRepo.GetByIdAsync(companyId);
+        var companyName = company?.Name;
         var teams = await _teamRepo.GetAllByCompanyAsync(companyId);
         var list = new List<TeamListItemResponse>();
         foreach (var t in teams)
@@ -78,7 +80,7 @@ public class TeamService : ITeamService
             list.Add(new TeamListItemResponse(
                 t.Id,
                 t.CompanyId,
-                null,
+                companyName ?? t.Company?.Name,
                 t.Name,
                 t.Description,
                 members.Count(m => !m.IsLeader),
@@ -95,11 +97,16 @@ public class TeamService : ITeamService
         var company = await _companyRepo.GetByIdAsync(request.CompanyId)
             ?? throw new KeyNotFoundException($"Empresa {request.CompanyId} não encontrada.");
 
+        const int teamDescriptionMaxLength = 500;
+        var desc = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        if (desc?.Length > teamDescriptionMaxLength)
+            throw new InvalidOperationException($"A descrição do time não pode ter mais de {teamDescriptionMaxLength} caracteres.");
+
         var team = new Team
         {
             CompanyId   = request.CompanyId,
             Name        = request.Name.Trim(),
-            Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+            Description = desc,
             CreatedAt   = DateTime.UtcNow
         };
         var id = await _teamRepo.CreateAsync(team);
@@ -123,8 +130,13 @@ public class TeamService : ITeamService
             ?? throw new KeyNotFoundException($"Time {id} não encontrado.");
         await ValidateMembersAsync(request.Members, teamId: id, companyId: team.CompanyId);
 
+        const int teamDescriptionMaxLength = 500;
+        var desc = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        if (desc?.Length > teamDescriptionMaxLength)
+            throw new InvalidOperationException($"A descrição do time não pode ter mais de {teamDescriptionMaxLength} caracteres.");
+
         team.Name        = request.Name.Trim();
-        team.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        team.Description = desc;
         await _teamRepo.UpdateAsync(team);
 
         var members = request.Members.Select(m => new TeamMember
@@ -139,7 +151,22 @@ public class TeamService : ITeamService
             await _teamRepo.SetTeamCompetenciesAsync(id, request.CompetencyIds);
     }
 
-    public Task DeleteAsync(int id) => _teamRepo.DeleteAsync(id);
+    public async Task DeleteAsync(int id)
+    {
+        var team = await _teamRepo.GetByIdAsync(id);
+        if (team is null)
+            throw new KeyNotFoundException($"Time {id} não encontrado.");
+
+        var members = await _teamRepo.GetMemberDetailsAsync(id);
+        if (members.Any())
+            throw new InvalidOperationException("Não é possível excluir o time: existem membros vinculados. Remova os membros do time antes de excluir.");
+
+        var competencyIds = await _teamRepo.GetTeamCompetencyIdsAsync(id);
+        if (competencyIds.Any())
+            throw new InvalidOperationException("Não é possível excluir o time: existem competências vinculadas. Remova as competências do time antes de excluir.");
+
+        await _teamRepo.DeleteAsync(id);
+    }
 
     public Task<IEnumerable<Guid>> GetAssignedMemberIdsAsync(int? excludeTeamId = null) =>
         _teamRepo.GetAssignedMemberIdsAsync(excludeTeamId);
