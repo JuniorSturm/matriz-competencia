@@ -4,12 +4,24 @@ import type {
   RoleDetailResponse,
   CreateRoleRequest,
   UpdateRoleRequest,
+  PagedResult,
 } from '../types'
 
 export const roleService = {
   getAll: async (companyId?: number | null): Promise<RoleDetailResponse[]> => {
     const params = companyId != null ? { companyId } : {}
     const res = await api.get<RoleDetailResponse[]>('/roles', { params })
+    return res.data
+  },
+
+  getPaged: async (page: number, pageSize: number, companyId?: number | null): Promise<PagedResult<RoleDetailResponse>> => {
+    const res = await api.get<PagedResult<RoleDetailResponse>>('/roles/paged', {
+      params: {
+        page,
+        pageSize,
+        companyId: companyId ?? undefined,
+      },
+    })
     return res.data
   },
 

@@ -35,6 +35,12 @@ public class SkillService : ISkillService
         return list.Select(Map);
     }
 
+    public async Task<PagedResult<SkillResponse>> GetPagedAsync(int page, int pageSize, int? companyId)
+    {
+        var (items, total) = await _repo.GetPagedAsync(page, pageSize, companyId);
+        return new PagedResult<SkillResponse>(items.Select(Map), total);
+    }
+
     public async Task<IEnumerable<SkillResponse>> GetByRoleAsync(int roleId)
     {
         var list = await _repo.GetByRoleAsync(roleId);

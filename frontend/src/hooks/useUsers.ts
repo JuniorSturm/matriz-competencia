@@ -2,8 +2,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userService } from '../services/userService'
 import type { CreateUserRequest, UpdateUserRequest, ResetPasswordRequest } from '../types'
 
-export const useUsers = () =>
-  useQuery({ queryKey: ['users'], queryFn: userService.getAll })
+export const useUsers = (enabled: boolean = true) =>
+  useQuery({ queryKey: ['users'], queryFn: userService.getAll, enabled })
+
+export const usePagedUsers = (page: number, pageSize: number, name?: string, onlyCollaborators: boolean = true) =>
+  useQuery({
+    queryKey: ['users-paged', page, pageSize, name, onlyCollaborators],
+    queryFn: () => userService.getPaged(page, pageSize, name, onlyCollaborators),
+    keepPreviousData: true,
+  })
 
 export const useUser = (id: string) =>
   useQuery({ queryKey: ['users', id], queryFn: () => userService.getById(id), enabled: !!id })

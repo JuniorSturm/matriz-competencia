@@ -1,4 +1,3 @@
--- ============================================================
 -- Matriz de Competências - Criação do Banco de Dados
 -- Script único de criação de tabelas, índices e estruturas
 -- ============================================================
@@ -11,10 +10,24 @@ CREATE TABLE IF NOT EXISTS skill_categories (
     name VARCHAR(100) NOT NULL UNIQUE
 );
 
--- Roles (áreas de atuação)
+-- Empresas
+CREATE TABLE IF NOT EXISTS companies (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(200) NOT NULL,
+    document    VARCHAR(20),
+    email       VARCHAR(150),
+    phone       VARCHAR(30),
+    is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Roles (cargos / áreas de atuação) por empresa
 CREATE TABLE IF NOT EXISTS roles (
-    id   SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(50) NOT NULL,
+    description TEXT,
+    company_id  INT NOT NULL REFERENCES companies(id),
+    CONSTRAINT roles_company_name_unique UNIQUE (company_id, name)
 );
 
 -- Grades (senioridade)
@@ -26,22 +39,26 @@ CREATE TABLE IF NOT EXISTS grades (
 
 -- Usuários
 CREATE TABLE IF NOT EXISTS users (
-    id         UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    name       VARCHAR(150) NOT NULL,
-    email      VARCHAR(150) NOT NULL UNIQUE,
-    password   VARCHAR(255) NOT NULL,
-    role_id    INT REFERENCES roles(id),
-    grade_id   INT REFERENCES grades(id),
-    is_manager BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    id            UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+    name          VARCHAR(150) NOT NULL,
+    email         VARCHAR(150) NOT NULL UNIQUE,
+    password      VARCHAR(255) NOT NULL,
+    role_id       INT REFERENCES roles(id),
+    grade_id      INT REFERENCES grades(id),
+    is_manager    BOOLEAN NOT NULL DEFAULT FALSE,
+    is_admin      BOOLEAN NOT NULL DEFAULT FALSE,
+    is_coordinator BOOLEAN NOT NULL DEFAULT FALSE,
+    company_id    INT REFERENCES companies(id),
+    created_at    TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- Competências (sem duplicação; vínculo com cargos via skill_expectations)
 CREATE TABLE IF NOT EXISTS skills (
     id            SERIAL PRIMARY KEY,
-    name          VARCHAR(250) NOT NULL UNIQUE,
+    name          VARCHAR(250) NOT NULL,
     category      VARCHAR(100) NOT NULL,
-    is_meta_2026  BOOLEAN NOT NULL DEFAULT FALSE
+    is_meta_2026  BOOLEAN NOT NULL DEFAULT FALSE,
+    company_id    INT REFERENCES companies(id)
 );
 
 -- Descritivos por nível (por cargo)
@@ -75,10 +92,59 @@ CREATE TABLE IF NOT EXISTS skill_assessments (
     UNIQUE (user_id, skill_id)
 );
 
+-- Times por empresa
+CREATE TABLE IF NOT EXISTS teams (
+    id          SERIAL PRIMARY KEY,
+    company_id  INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name        VARCHAR(150) NOT NULL,
+    description TEXT,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (company_id, name)
+);
+
+-- Membros do time
+CREATE TABLE IF NOT EXISTS team_members (
+    team_id   INT     NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    user_id   UUID    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    is_leader BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (team_id, user_id)
+);
+
+-- Competências selecionadas para cada time
+CREATE TABLE IF NOT EXISTS team_competencies (
+    team_id   INT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    skill_id  INT NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+    PRIMARY KEY (team_id, skill_id)
+);
+
 -- ============================================================
 -- Índices
 -- ============================================================
-CREATE INDEX IF NOT EXISTS idx_assessment_user        ON skill_assessments (user_id);
-CREATE INDEX IF NOT EXISTS idx_skill_category         ON skills (category);
-CREATE INDEX IF NOT EXISTS idx_expectation_role_grade  ON skill_expectations (role_id, grade_id);
-CREATE INDEX IF NOT EXISTS idx_users_email            ON users (email);
+CREATE INDEX IF NOT EXISTS idx_assessment_user           ON skill_assessments (user_id);
+CREATE INDEX IF NOT EXISTS idx_skill_category            ON skills (category);
+CREATE INDEX IF NOT EXISTS idx_expectation_role_grade    ON skill_expectations (role_id, grade_id);
+CREATE INDEX IF NOT EXISTS idx_users_email               ON users (email);
+CREATE INDEX IF NOT EXISTS idx_teams_company             ON teams (company_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_team         ON team_members (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user         ON team_members (user_id);
+CREATE INDEX IF NOT EXISTS idx_skills_company            ON skills (company_id);
+CREATE INDEX IF NOT EXISTS idx_team_competencies_team    ON team_competencies (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_competencies_skill   ON team_competencies (skill_id);
+
+-- Índices adicionais de performance (unificados dos migrations 005 e 006)
+CREATE INDEX IF NOT EXISTS idx_users_company_id          ON users (company_id);
+CREATE INDEX IF NOT EXISTS idx_expectation_skill         ON skill_expectations (skill_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_user_skill     ON skill_assessments (user_id, skill_id);
+CREATE INDEX IF NOT EXISTS idx_skill_descriptions_skill  ON skill_descriptions (skill_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user_leader  ON team_members (user_id, is_leader);
+
+CREATE INDEX IF NOT EXISTS idx_skills_company_category_name
+    ON skills (company_id, category, name);
+CREATE INDEX IF NOT EXISTS idx_skills_category_name
+    ON skills (category, name);
+CREATE INDEX IF NOT EXISTS idx_users_company_name
+    ON users (company_id, name);
+CREATE INDEX IF NOT EXISTS idx_skill_assessments_skill
+    ON skill_assessments (skill_id);
+CREATE INDEX IF NOT EXISTS idx_skill_descriptions_role
+    ON skill_descriptions (role_id);

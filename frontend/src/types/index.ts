@@ -62,6 +62,17 @@ export interface SkillResponse   { id: number; name: string; category: string; c
 export interface CreateSkillRequest { name: string; category: string; companyId?: number | null }
 export interface UpdateSkillRequest { name: string; category: string }
 
+export interface PagedResult<T> {
+  items: T[]
+  totalCount: number
+}
+
+export interface AdminDashboardStats {
+  totalUsers: number
+  totalSkills: number
+  totalManagers: number
+}
+
 export interface SkillDescriptionDto {
   id: number
   skillId: number

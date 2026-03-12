@@ -11,7 +11,7 @@ import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import WorkIcon from '@mui/icons-material/Work'
 import { useAuth } from '../hooks/useAuth'
-import { useRolesList } from '../hooks/useRoleGrade'
+import { useRolesPagedList } from '../hooks/useRoleGrade'
 import { useDeleteRole } from '../hooks/useRoles'
 import { useCompanies } from '../hooks/useCompanies'
 import type { RoleDetailResponse } from '../types'
@@ -32,21 +32,21 @@ export default function RolesPage() {
   const rowsPerPage = 50
 
   const companyIdForApi = isAdmin && companyFilter !== '' ? (companyFilter as number) : undefined
-  const { data: roles = [], isLoading, error } = useRolesList(companyIdForApi)
+  const { data, isLoading, error } = useRolesPagedList(page + 1, rowsPerPage, companyIdForApi)
   const { data: companies = [] } = useCompanies(isAdmin)
   const deleteMutation = useDeleteRole()
+
+  const roles = data?.items ?? []
+  const totalCount = data?.totalCount ?? 0
+
+  const isInitialLoading = isLoading && !data && page === 0
 
   const filtered = useMemo(() => {
     if (!roles.length) return []
     if (!nameFilter.trim()) return roles
     const lower = nameFilter.toLowerCase()
-    return roles.filter((r: RoleDetailResponse) => r.nome.toLowerCase().includes(lower))
+    return roles.filter((r: RoleDetailResponse) => (r.nome ?? '').toLowerCase().includes(lower))
   }, [roles, nameFilter])
-
-  const paginated = useMemo(
-    () => filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [filtered, page],
-  )
 
   const handleDelete = async (id: number) => {
     if (!confirm('Confirma exclusão do cargo?')) return
@@ -59,7 +59,7 @@ export default function RolesPage() {
     }
   }
 
-  if (isLoading) return <Box display='flex' justifyContent='center' py={8}><CircularProgress /></Box>
+  if (isInitialLoading) return <Box display='flex' justifyContent='center' py={8}><CircularProgress /></Box>
   if (error) return <Alert severity='error'>Erro ao carregar cargos.</Alert>
 
   return (
@@ -69,7 +69,7 @@ export default function RolesPage() {
           <Box>
             <Typography variant='h5' fontWeight={700}>Cargos</Typography>
             <Typography variant='body2' color='text.secondary'>
-              {filtered.length} cargo{filtered.length !== 1 ? 's' : ''} cadastrado{filtered.length !== 1 ? 's' : ''}
+              {totalCount} cargo{totalCount !== 1 ? 's' : ''} cadastrado{totalCount !== 1 ? 's' : ''}
             </Typography>
           </Box>
           <Button
@@ -130,13 +130,12 @@ export default function RolesPage() {
             <TableHead>
               <TableRow>
                 <TableCell>Cargo</TableCell>
-                <TableCell sx={colFromSm}>Descrição</TableCell>
                 {isAdmin && <TableCell sx={colFromSm}>Empresa</TableCell>}
                 <TableCell align='right' sx={{ width: 56 }}>Ações</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginated.map((r: RoleDetailResponse) => (
+              {filtered.map((r: RoleDetailResponse) => (
                 <TableRow key={r.id}>
                   <TableCell>
                     <Box display='flex' alignItems='center' gap={1.5}>
@@ -150,11 +149,6 @@ export default function RolesPage() {
                       </Avatar>
                       <Typography variant='body2' fontWeight={600}>{r.nome}</Typography>
                     </Box>
-                  </TableCell>
-                  <TableCell sx={colFromSm}>
-                    <Typography variant='body2' color='text.secondary' sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {r.descricao ?? '—'}
-                    </Typography>
                   </TableCell>
                   {isAdmin && (
                     <TableCell sx={colFromSm}>
@@ -176,7 +170,7 @@ export default function RolesPage() {
         </TableContainer>
         <TablePagination
           component='div'
-          count={filtered.length}
+          count={totalCount}
           page={page}
           onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}

@@ -223,6 +223,13 @@ export default function LoginPage() {
                   '&:hover fieldset': { borderColor: BRAND.cyan },
                   '&.Mui-focused fieldset': { borderColor: BRAND.cyan, borderWidth: 2 },
                 },
+                '& .MuiInputBase-input': {
+                  color: '#1A2233',
+                  '::placeholder': {
+                    color: '#5F6B7A',
+                    opacity: 1,
+                  },
+                },
               }}
             />
             <TextField
@@ -242,6 +249,13 @@ export default function LoginPage() {
                   '& fieldset': { borderColor: '#E3E7ED' },
                   '&:hover fieldset': { borderColor: BRAND.cyan },
                   '&.Mui-focused fieldset': { borderColor: BRAND.cyan, borderWidth: 2 },
+                },
+                '& .MuiInputBase-input': {
+                  color: '#1A2233',
+                  '::placeholder': {
+                    color: '#5F6B7A',
+                    opacity: 1,
+                  },
                 },
               }}
             />

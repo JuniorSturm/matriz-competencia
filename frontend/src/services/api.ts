@@ -15,10 +15,20 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const status = err.response?.status
+    const url    = err.config?.url as string | undefined
+
+    if (status === 401) {
+      // No login, deixamos a própria tela tratar o erro.
+      if (url && url.includes('/auth/login')) {
+        return Promise.reject(err)
+      }
+
       localStorage.removeItem('token')
       window.location.href = '/login'
+      return Promise.reject(err)
     }
+
     return Promise.reject(err)
   }
 )

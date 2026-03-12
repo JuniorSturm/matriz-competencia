@@ -15,7 +15,7 @@ public class AssessmentRepository : IAssessmentRepository
     {
         using var conn = _ctx.CreateConnection();
         return await conn.QueryAsync<SkillAssessment>(
-            "SELECT * FROM skill_assessments WHERE user_id = @userId",
+            "SELECT id, user_id, skill_id, current_level, last_updated FROM skill_assessments WHERE user_id = @userId",
             new { userId }
         );
     }

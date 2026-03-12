@@ -12,4 +12,5 @@ public interface ICompanyRepository
     Task<IEnumerable<User>> GetUsersByCompanyAsync(int companyId);
     Task AddUserToCompanyAsync(int companyId, Guid userId);
     Task RemoveUserFromCompanyAsync(int companyId, Guid userId);
+    Task<string?> GetNameByIdAsync(int id);
 }

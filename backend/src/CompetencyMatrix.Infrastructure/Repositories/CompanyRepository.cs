@@ -15,7 +15,9 @@ public class CompanyRepository : ICompanyRepository
         using var conn = _ctx.CreateConnection();
 
         const string sql = @"
-            SELECT * FROM companies WHERE id = @id";
+            SELECT id, name, document, email, phone, is_active, created_at
+            FROM companies
+            WHERE id = @id";
         var company = await conn.QueryFirstOrDefaultAsync<Company>(sql, new { id });
 
         if (company is not null)
@@ -32,11 +34,21 @@ public class CompanyRepository : ICompanyRepository
         return company;
     }
 
+    public async Task<string?> GetNameByIdAsync(int id)
+    {
+        using var conn = _ctx.CreateConnection();
+        const string sql = "SELECT name FROM companies WHERE id = @id";
+        return await conn.ExecuteScalarAsync<string?>(sql, new { id });
+    }
+
     public async Task<IEnumerable<Company>> GetAllAsync()
     {
         using var conn = _ctx.CreateConnection();
 
-        const string sql = "SELECT * FROM companies ORDER BY name";
+        const string sql = @"
+            SELECT id, name, document, email, phone, is_active, created_at
+            FROM companies
+            ORDER BY name";
         var companies = (await conn.QueryAsync<Company>(sql)).ToList();
 
         if (companies.Count > 0)

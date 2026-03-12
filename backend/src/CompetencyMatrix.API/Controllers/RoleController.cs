@@ -28,6 +28,16 @@ public class RoleController : ControllerBase
         return Ok(list);
     }
 
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] int? companyId = null)
+    {
+        if (page <= 0 || pageSize <= 0)
+            return BadRequest(new { message = "Parâmetros de paginação inválidos." });
+
+        var result = await _service.GetPagedAsync(GetCurrentUserId(User), companyId, page, pageSize);
+        return Ok(result);
+    }
+
     [HttpGet("by-company/{companyId:int}")]
     public async Task<IActionResult> GetByCompany(int companyId)
     {

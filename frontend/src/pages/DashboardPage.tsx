@@ -25,7 +25,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useAssessments } from '../hooks/useAssessments'
 import { assessmentService } from '../services/assessmentService'
 import { teamService } from '../services/teamService'
-import type { AssessmentResponse, UserResponse } from '../types'
+import { dashboardService } from '../services/dashboardService'
+import type { AssessmentResponse, UserResponse, AdminDashboardStats } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 
@@ -121,16 +122,26 @@ function StatCard({ label, value, icon, color, gradient }: StatCardProps) {
 
 export default function DashboardPage() {
   const { user }         = useAuth()
-  const { data: users }  = useUsers()
-  const { data: skills } = useSkills()
   const navigate = useNavigate()
   const isAdmin       = user?.isAdmin ?? false
   const isManager     = user?.isManager ?? false
   const isCoordinator = (user?.isCoordinator ?? false) && !isAdmin && !isManager
 
-  const totalUsers    = users?.length  ?? 0
-  const totalSkills   = skills?.length ?? 0
-  const totalManagers = users?.filter((u) => u.isManager).length ?? 0
+  // Admin: buscar apenas estatísticas agregadas, sem carregar toda a massa.
+  const { data: adminStats } = useQuery<AdminDashboardStats>({
+    queryKey: ['dashboard-admin-stats'],
+    queryFn: () => dashboardService.getAdminStats(),
+    enabled: isAdmin,
+    staleTime: 2 * 60_000,
+  })
+
+  // Demais perfis: continuam usando as listas completas.
+  const { data: users }  = useUsers(!isAdmin)
+  const { data: skills } = useSkills(undefined, undefined, !isAdmin)
+
+  const totalUsers    = isAdmin ? (adminStats?.totalUsers ?? 0) : (users?.length  ?? 0)
+  const totalSkills   = isAdmin ? (adminStats?.totalSkills ?? 0) : (skills?.length ?? 0)
+  const totalManagers = isAdmin ? (adminStats?.totalManagers ?? 0) : (users?.filter((u) => u.isManager).length ?? 0)
 
   /* ── Coordinator: fetch my teams (backend filtra por times do usuário) ───────────────── */
   const { data: myTeams } = useQuery({

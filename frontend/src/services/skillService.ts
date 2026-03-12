@@ -7,6 +7,7 @@ import type {
   SkillDescriptionDto,
   UpsertDescriptionRequest,
   SkillExpectationDto,
+  PagedResult,
 } from '../types'
 
 export const skillService = {
@@ -16,6 +17,16 @@ export const skillService = {
     if (companyId) params.companyId = companyId
     const res = await api.get<SkillResponse[]>('/skills', {
       params: Object.keys(params).length > 0 ? params : undefined,
+    })
+    return res.data
+  },
+  getPaged: async (page: number, pageSize: number, companyId?: number): Promise<PagedResult<SkillResponse>> => {
+    const res = await api.get<PagedResult<SkillResponse>>('/skills/paged', {
+      params: {
+        page,
+        pageSize,
+        companyId: companyId ?? undefined,
+      },
     })
     return res.data
   },

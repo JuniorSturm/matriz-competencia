@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Alert, CircularProgress, Chip,
-  InputAdornment, FormControl, InputLabel, Select, MenuItem, Snackbar,
+  InputAdornment, FormControl, InputLabel, Select, MenuItem, Snackbar, TablePagination,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
-import { useSkills, useDeleteSkill } from '../hooks/useSkills'
+import { usePagedSkills, useDeleteSkill } from '../hooks/useSkills'
 import { useAuth } from '../hooks/useAuth'
 import { useCompanies } from '../hooks/useCompanies'
 import { BRAND } from '../theme/ThemeProvider'
@@ -21,11 +21,16 @@ export default function SkillsPage() {
   const isAdmin = user?.isAdmin ?? false
   const [companyFilter, setCompanyFilter] = useState<number | ''>('')
   const companyIdForApi = isAdmin && companyFilter !== '' ? (companyFilter as number) : undefined
-  const { data: skills, isLoading, error } = useSkills(undefined, companyIdForApi)
+  const [page, setPage] = useState(0)
+  const rowsPerPage = 50
+  const { data, isLoading, error } = usePagedSkills(page + 1, rowsPerPage, companyIdForApi)
   const { data: companies = [] } = useCompanies(isAdmin)
   const deleteMutation = useDeleteSkill()
   const [nameFilter, setNameFilter] = useState('')
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const skills = data?.items ?? []
+  const totalCount = data?.totalCount ?? 0
 
   const filteredSkills = useMemo(() => {
     if (!skills) return []
@@ -45,7 +50,7 @@ export default function SkillsPage() {
     }
   }
 
-  if (isLoading) return <Box display='flex' justifyContent='center' py={8}><CircularProgress /></Box>
+  if (isLoading && !data) return <Box display='flex' justifyContent='center' py={8}><CircularProgress /></Box>
   if (error) return <Alert severity='error'>Erro ao carregar competências.</Alert>
 
   return (
@@ -55,7 +60,7 @@ export default function SkillsPage() {
           <Box>
             <Typography variant='h5' fontWeight={700}>Competências</Typography>
             <Typography variant='body2' color='text.secondary'>
-              {filteredSkills.length} registro{filteredSkills.length !== 1 ? 's' : ''}
+              {totalCount} registro{totalCount !== 1 ? 's' : ''}
             </Typography>
           </Box>
           <Button
@@ -76,7 +81,11 @@ export default function SkillsPage() {
             <Select
               value={companyFilter === '' ? '' : String(companyFilter)}
               label='Empresa'
-              onChange={(e) => { const v = e.target.value; setCompanyFilter(v === '' ? '' : Number(v)) }}
+              onChange={(e) => {
+                const v = e.target.value
+                setCompanyFilter(v === '' ? '' : Number(v))
+                setPage(0)
+              }}
             >
               <MenuItem value=''>Todas</MenuItem>
               {companies.filter((c) => c.isActive).map((c) => (
@@ -150,6 +159,25 @@ export default function SkillsPage() {
           </TableBody>
         </Table>
       </TableContainer>
+      <Paper
+        sx={{
+          borderRadius: '0 0 16px 16px',
+          borderTopLeftRadius: 0,
+          borderTopRightRadius: 0,
+          mt: -1,
+        }}
+      >
+        <TablePagination
+          component='div'
+          count={totalCount}
+          page={page}
+          onPageChange={(_, p) => setPage(p)}
+          rowsPerPage={rowsPerPage}
+          rowsPerPageOptions={[rowsPerPage]}
+          labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
+          sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider' }}
+        />
+      </Paper>
       <Snackbar open={!!deleteError} autoHideDuration={8000} onClose={() => setDeleteError(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity='error' variant='filled' onClose={() => setDeleteError(null)}>{deleteError}</Alert>
       </Snackbar>

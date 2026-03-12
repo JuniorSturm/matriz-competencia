@@ -1,9 +1,9 @@
 import { memo, useCallback, useDeferredValue, useMemo, useState } from 'react'
 import {
-  Alert, Box, CircularProgress, Drawer, FormControl, IconButton, InputLabel,
-  MenuItem, Paper, Select, Skeleton, Table, TableBody, TableCell,
+  Alert, Box, CircularProgress, Drawer, IconButton,
+  Paper, Skeleton, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography, Chip, Tab, Tabs,
-  LinearProgress, Tooltip,
+  LinearProgress, Tooltip, Button,
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
@@ -11,7 +11,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
-import { useUsers } from '../hooks/useUsers'
+import { useUser } from '../hooks/useUsers'
 import { useAssessments, useUpsertAssessment } from '../hooks/useAssessments'
 import { useSkills, useSkillDescriptions } from '../hooks/useSkills'
 import type { AssessmentResponse, CompetencyLevel } from '../types'
@@ -19,6 +19,7 @@ import { LEVELS } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
+import { UserPickerDrawer } from '../components/UserPickerDrawer'
 
 /* ── Tooltip helper ─────────────────────────────────────────── */
 const InfoTip = ({ title }: { title: string }) => (
@@ -138,7 +139,6 @@ function NativeLevelSelect({ value, onChange }: { value: string; onChange: (v: C
 export default function AssessmentsPage() {
   const { user: authUser } = useAuth()
   const canAssess = !!(authUser?.isManager || authUser?.isCoordinator || authUser?.isAdmin)
-  const { data: users }    = useUsers()
   const { data: skills }   = useSkills()
   const [selectedUserId, setSelectedUserId] = useState<string>(canAssess ? '' : (authUser?.id ?? ''))
   const deferredUserId = useDeferredValue(selectedUserId)
@@ -147,20 +147,14 @@ export default function AssessmentsPage() {
   const upsertMutation = useUpsertAssessment()
   const [tabIndex, setTabIndex] = useState(0)
 
-  const userOptions = useMemo(
-    () => users?.filter((u) => !u.isManager && !u.isAdmin && !u.isCoordinator) ?? [],
-    [users],
-  )
+  const { data: selectedUser } = useUser(deferredUserId)
 
   /* ── Flyout state ─────────────────────────────────────────────── */
   const [drawerSkillId, setDrawerSkillId] = useState<number | null>(null)
   const drawerOpen = drawerSkillId !== null
   const { data: descriptions, isLoading: descLoading } = useSkillDescriptions(drawerSkillId)
 
-  const selectedUser = useMemo(
-    () => users?.find((u) => u.id === deferredUserId) ?? null,
-    [users, deferredUserId],
-  )
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const drawerDescriptions = useMemo(() => {
     if (!descriptions || !selectedUser?.roleId) return []
@@ -241,19 +235,15 @@ export default function AssessmentsPage() {
 
       <Box sx={{ flexShrink: 0, mt: 1 }}>
       {canAssess && (
-        <FormControl sx={{ mb: 2, minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 300 } }}>
-          <InputLabel>Colaborador</InputLabel>
-          <Select
-            label='Colaborador'
-            value={selectedUserId}
-            onChange={(e) => setSelectedUserId(e.target.value)}
+        <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
+          <Button
+            variant='outlined'
+            size='small'
+            onClick={() => setPickerOpen(true)}
           >
-            <MenuItem value=''>Selecione...</MenuItem>
-            {userOptions.map((u) => (
-              <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+            {selectedUser ? `Colaborador: ${selectedUser.name}` : 'Selecionar colaborador'}
+          </Button>
+        </Box>
       )}
 
       {(isLoading || isPending) && <Box display='flex' justifyContent='center' py={6}><CircularProgress /></Box>}
@@ -640,6 +630,15 @@ export default function AssessmentsPage() {
           </Alert>
         )}
       </Drawer>
+
+      {canAssess && (
+        <UserPickerDrawer
+          open={pickerOpen}
+          title='Selecionar colaborador'
+          onClose={() => setPickerOpen(false)}
+          onSelect={(u) => setSelectedUserId(u.id)}
+        />
+      )}
     </Box>
   )
 }

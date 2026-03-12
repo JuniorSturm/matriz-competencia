@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box, Button, TextField, Typography, Paper, CircularProgress, Alert,
@@ -10,17 +10,59 @@ import { alpha } from '@mui/material/styles'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
 import SchoolIcon from '@mui/icons-material/School'
-import { useSkills, useCreateSkill, useUpdateSkill, useSkillDescriptions, useUpsertDescription, useSkillExpectations, useUpsertExpectation } from '../hooks/useSkills'
+import { useSkill, useCreateSkill, useUpdateSkill, useSkillDescriptions, useUpsertDescription, useSkillExpectations, useUpsertExpectation } from '../hooks/useSkills'
 import { useCategories, useRolesByCompany, useNiveis } from '../hooks/useRoleGrade'
 import { useCompanies } from '../hooks/useCompanies'
 import { useAuth } from '../hooks/useAuth'
-import type { CreateSkillRequest, SkillResponse, CompetencyLevel } from '../types'
+import type { CreateSkillRequest, CompetencyLevel } from '../types'
 import { LEVELS } from '../types'
 import { skillService } from '../services/skillService'
 import PageHeader from '../components/PageHeader'
 import { BRAND } from '../theme/ThemeProvider'
 
 const DESC_LEVELS = ['BRONZE', 'PRATA', 'OURO'] as const
+
+interface DescriptionEditorProps {
+  roleId: number
+  level: (typeof DESC_LEVELS)[number]
+  value: string
+  submitted: boolean
+  onCommit: (roleId: number, level: (typeof DESC_LEVELS)[number], value: string) => void
+}
+
+const DescriptionEditor = memo(function DescriptionEditor({
+  roleId,
+  level,
+  value,
+  submitted,
+  onCommit,
+}: DescriptionEditorProps) {
+  const [text, setText] = useState(value)
+
+  useEffect(() => {
+    setText(value)
+  }, [value])
+
+  const trimmed = text.trim()
+
+  return (
+    <TextField
+      label={`Descrição — ${level}`}
+      multiline
+      minRows={6}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => onCommit(roleId, level, text)}
+      fullWidth
+      size='small'
+      required
+      error={submitted && !trimmed}
+      inputProps={{ maxLength: 5000 }}
+      helperText={submitted && !trimmed ? 'Campo obrigatório' : `${text.length}/5000`}
+      sx={{ mt: 0 }}
+    />
+  )
+})
 
 export default function SkillFormPage() {
   const navigate = useNavigate()
@@ -32,7 +74,7 @@ export default function SkillFormPage() {
   const isAdmin = user?.isAdmin ?? false
   const userCompanyId = user?.companyId ?? null
 
-  const { data: skills, isLoading: loadingSkills } = useSkills()
+  const { data: existingSkill, isLoading: loadingSkill } = useSkill(skillId)
   const { data: descriptions, isLoading: descLoading } = useSkillDescriptions(skillId)
   const { data: expectations } = useSkillExpectations(skillId)
   const { data: categories } = useCategories()
@@ -61,37 +103,39 @@ export default function SkillFormPage() {
   const [submitted, setSubmitted] = useState(false)
   const [validationErrorMsg, setValidationErrorMsg] = useState<string | null>(null)
 
-  const existingSkill: SkillResponse | undefined = isEdit
-    ? skills?.find((s) => s.id === skillId)
-    : undefined
-
-  if (isEdit && existingSkill && !synced) {
-    setForm({ name: existingSkill.name, category: existingSkill.category, companyId: existingSkill.companyId })
-    setSynced(true)
-  }
-
-  if (descriptions && !descSynced) {
-    const map: Record<number, Record<string, string>> = {}
-    for (const d of descriptions) {
-      if (!map[d.roleId]) map[d.roleId] = {}
-      map[d.roleId][d.level] = d.description
+  useEffect(() => {
+    if (isEdit && existingSkill && !synced) {
+      setForm({ name: existingSkill.name, category: existingSkill.category, companyId: existingSkill.companyId })
+      setSynced(true)
     }
-    setDescForm(map)
-    setDescSynced(true)
-  }
+  }, [isEdit, existingSkill, synced])
 
-  if (expectations && !expSynced) {
-    const roleIds = new Set<number>()
-    const rgl: Record<number, Record<number, CompetencyLevel | ''>> = {}
-    for (const e of expectations) {
-      roleIds.add(e.roleId)
-      if (!rgl[e.roleId]) rgl[e.roleId] = {}
-      rgl[e.roleId][e.gradeId] = e.expectedLevel
+  useEffect(() => {
+    if (descriptions && !descSynced) {
+      const map: Record<number, Record<string, string>> = {}
+      for (const d of descriptions) {
+        if (!map[d.roleId]) map[d.roleId] = {}
+        map[d.roleId][d.level] = d.description
+      }
+      setDescForm(map)
+      setDescSynced(true)
     }
-    setSelectedRoleIds(Array.from(roleIds))
-    setRoleGradeLevels(rgl)
-    setExpSynced(true)
-  }
+  }, [descriptions, descSynced])
+
+  useEffect(() => {
+    if (expectations && !expSynced) {
+      const roleIds = new Set<number>()
+      const rgl: Record<number, Record<number, CompetencyLevel | ''>> = {}
+      for (const e of expectations) {
+        roleIds.add(e.roleId)
+        if (!rgl[e.roleId]) rgl[e.roleId] = {}
+        rgl[e.roleId][e.gradeId] = e.expectedLevel
+      }
+      setSelectedRoleIds(Array.from(roleIds))
+      setRoleGradeLevels(rgl)
+      setExpSynced(true)
+    }
+  }, [expectations, expSynced])
 
   const sortedGrades = niveis ? [...niveis].sort((a, b) => a.ordinal - b.ordinal) : []
 
@@ -233,8 +277,8 @@ export default function SkillFormPage() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending || upsertDescMutation.isPending || upsertExpMutation.isPending
 
-  if (isEdit && loadingSkills) return <CircularProgress />
-  if (isEdit && !existingSkill && !loadingSkills) return <Alert severity='error'>Competência não encontrada.</Alert>
+  if (isEdit && loadingSkill) return <CircularProgress />
+  if (isEdit && !existingSkill && !loadingSkill) return <Alert severity='error'>Competência não encontrada.</Alert>
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 112px)', minWidth: 0 }}>
@@ -310,6 +354,7 @@ export default function SkillFormPage() {
               value={selectedRoleIds}
               onChange={(e) => handleRoleToggle(e.target.value as number[])}
               input={<OutlinedInput label='Cargos' />}
+              MenuProps={{ transitionDuration: 0 }}
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {(selected as number[]).map((rid) => {
@@ -335,6 +380,7 @@ export default function SkillFormPage() {
                 value={Math.min(cargoTabIndex, selectedRoleIds.length - 1)}
                 onChange={(_, v: number) => setCargoTabIndex(v)}
                 sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, minHeight: 44 }}
+                TabIndicatorProps={{ sx: { transition: 'none' } }}
               >
                 {selectedRoleIds.map((roleId, idx) => {
                   const role = roles?.find((r) => r.id === roleId)
@@ -345,6 +391,7 @@ export default function SkillFormPage() {
                       id={`cargo-tab-${idx}`}
                       aria-controls={`cargo-panel-${idx}`}
                       sx={{ minHeight: 44, py: 1.5 }}
+                      disableRipple
                     />
                   )
                 })}
@@ -395,36 +442,36 @@ export default function SkillFormPage() {
                           value={descTabByRole[roleId] ?? 0}
                           onChange={(_, v: number) => setDescTabByRole((prev) => ({ ...prev, [roleId]: v }))}
                           sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, minHeight: 40 }}
+                          TabIndicatorProps={{ sx: { transition: 'none' } }}
                         >
                           {DESC_LEVELS.map((level, idxLvl) => (
-                            <Tab key={level} label={level} id={`desc-tab-${roleId}-${idxLvl}`} aria-controls={`desc-panel-${roleId}-${idxLvl}`} sx={{ minHeight: 40, py: 1 }} />
+                            <Tab
+                              key={level}
+                              label={level}
+                              id={`desc-tab-${roleId}-${idxLvl}`}
+                              aria-controls={`desc-panel-${roleId}-${idxLvl}`}
+                              sx={{ minHeight: 40, py: 1 }}
+                              disableRipple
+                            />
                           ))}
                         </Tabs>
                         {DESC_LEVELS.map((level, idxLvl) => {
-                          const val = (descForm[roleId]?.[level] ?? '').trim()
                           const text = descForm[roleId]?.[level] ?? ''
                           const isActive = (descTabByRole[roleId] ?? 0) === idxLvl
                           if (!isActive) return null
                           return (
                             <Box key={level} role='tabpanel' id={`desc-panel-${roleId}-${idxLvl}`} aria-labelledby={`desc-tab-${roleId}-${idxLvl}`}>
-                              <TextField
-                                label={`Descrição — ${level}`}
-                                multiline
-                                minRows={6}
+                              <DescriptionEditor
+                                roleId={roleId}
+                                level={level}
                                 value={text}
-                                onChange={(e) =>
+                                submitted={submitted}
+                                onCommit={(rid, lvl, val) =>
                                   setDescForm((prev) => ({
                                     ...prev,
-                                    [roleId]: { ...(prev[roleId] || {}), [level]: e.target.value },
+                                    [rid]: { ...(prev[rid] || {}), [lvl]: val },
                                   }))
                                 }
-                                fullWidth
-                                size='small'
-                                required
-                                error={submitted && !val}
-                                inputProps={{ maxLength: 5000 }}
-                                helperText={submitted && !val ? 'Campo obrigatório' : `${text.length}/5000`}
-                                sx={{ mt: 0 }}
                               />
                             </Box>
                           )

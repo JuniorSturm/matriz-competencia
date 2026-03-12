@@ -52,6 +52,30 @@ public class SkillController : ControllerBase
         return Ok(await _service.GetAllAsync());
     }
 
+    [HttpGet("paged")]
+    [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
+    public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] int? companyId = null)
+    {
+        if (page <= 0 || pageSize <= 0)
+            return BadRequest(new { message = "Parâmetros de paginação inválidos." });
+
+        var currentUserId = GetCurrentUserId(User);
+        var role          = User.FindFirstValue(ClaimTypes.Role);
+
+        int? finalCompanyId = companyId;
+
+        // Admin pode informar qualquer empresa ou não filtrar.
+        if (role != "ADMIN" && currentUserId.HasValue)
+        {
+            var currentUser = await _userService.GetByIdAsync(currentUserId.Value);
+            if (currentUser?.CompanyId != null)
+                finalCompanyId = currentUser.CompanyId.Value;
+        }
+
+        var result = await _service.GetPagedAsync(page, pageSize, finalCompanyId);
+        return Ok(result);
+    }
+
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {

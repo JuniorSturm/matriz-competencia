@@ -32,6 +32,30 @@ public class SkillRepository : ISkillRepository
             new { companyId });
     }
 
+    public async Task<(IEnumerable<Skill> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, int? companyId)
+    {
+        using var conn = _ctx.CreateConnection();
+
+        var offset = (page <= 1 ? 0 : (page - 1) * pageSize);
+
+        const string sql = @"
+            SELECT id, name, category, company_id AS CompanyId
+            FROM skills
+            WHERE (@companyId IS NULL OR company_id = @companyId)
+            ORDER BY category, name
+            LIMIT @pageSize OFFSET @offset;
+
+            SELECT COUNT(*)
+            FROM skills
+            WHERE (@companyId IS NULL OR company_id = @companyId);";
+
+        using var multi = await conn.QueryMultipleAsync(sql, new { companyId, pageSize, offset });
+        var items = await multi.ReadAsync<Skill>();
+        var total = await multi.ReadFirstAsync<int>();
+
+        return (items, total);
+    }
+
     public async Task<IEnumerable<Skill>> GetByRoleAsync(int roleId)
     {
         using var conn = _ctx.CreateConnection();
@@ -87,7 +111,7 @@ public class SkillRepository : ISkillRepository
     {
         using var conn = _ctx.CreateConnection();
         return await conn.QueryAsync<SkillDescription>(
-            "SELECT * FROM skill_descriptions WHERE skill_id = @skillId ORDER BY role_id, level",
+            "SELECT id, skill_id, role_id, level, description FROM skill_descriptions WHERE skill_id = @skillId ORDER BY role_id, level",
             new { skillId }
         );
     }

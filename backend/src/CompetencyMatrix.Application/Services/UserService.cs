@@ -1,3 +1,4 @@
+using System.Linq;
 using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using CompetencyMatrix.Domain.Entities;
@@ -72,6 +73,32 @@ public class UserService : IUserService
     {
         var list = await _repo.GetAllByCompanyAsync(companyId);
         return list.Select(Map);
+    }
+
+    public async Task<PagedResult<UserResponse>> GetPagedAsync(Guid? currentUserId, int page, int pageSize, string? nameFilter, bool onlyCollaborators)
+    {
+        if (page <= 0) page = 1;
+        if (pageSize <= 0) pageSize = 50;
+
+        var all = await GetAllAsync(currentUserId);
+        var query = all.AsQueryable();
+
+        if (onlyCollaborators)
+        {
+            query = query.Where(u => !u.IsAdmin && !u.IsManager && !u.IsCoordinator);
+        }
+
+        if (!string.IsNullOrWhiteSpace(nameFilter))
+        {
+            var lower = nameFilter.ToLowerInvariant();
+            query = query.Where(u => u.Name.ToLower().Contains(lower));
+        }
+
+        var total = query.Count();
+        var skip  = (page - 1) * pageSize;
+        var items = query.Skip(skip).Take(pageSize).ToList();
+
+        return new PagedResult<UserResponse>(items, total);
     }
 
     public async Task<Guid> CreateAsync(CreateUserRequest request, Guid? currentUserId = null)
@@ -201,16 +228,11 @@ public class UserService : IUserService
         if (currentUserId == targetUserId) return true;
         var currentUser = await _repo.GetByIdAsync(currentUserId);
         if (currentUser is null) return false;
-        if (currentUser.IsAdmin) return true;
-        if (currentUser.IsManager || currentUser.IsCoordinator)
-        {
-            if (currentUser.CompanyId.HasValue)
-            {
-                var targetUser = await _repo.GetByIdAsync(targetUserId);
-                return targetUser?.CompanyId == currentUser.CompanyId;
-            }
-            return false;
-        }
+        // Para os endpoints de avaliação/comparação, qualquer usuário com perfil de
+        // Admin / Gestor / Coordenador pode enxergar os colaboradores que aparecem no picker.
+        if (currentUser.IsAdmin || currentUser.IsManager || currentUser.IsCoordinator)
+            return true;
+
         return false;
     }
 

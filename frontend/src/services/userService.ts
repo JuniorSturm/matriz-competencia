@@ -1,9 +1,20 @@
 import { api } from './api'
-import type { UserResponse, CreateUserRequest, UpdateUserRequest, ResetPasswordRequest } from '../types'
+import type { UserResponse, CreateUserRequest, UpdateUserRequest, ResetPasswordRequest, PagedResult } from '../types'
 
 export const userService = {
   getAll: async (): Promise<UserResponse[]> => {
     const res = await api.get<UserResponse[]>('/users')
+    return res.data
+  },
+  getPaged: async (page: number, pageSize: number, name?: string, onlyCollaborators: boolean = true): Promise<PagedResult<UserResponse>> => {
+    const res = await api.get<PagedResult<UserResponse>>('/users/paged', {
+      params: {
+        page,
+        pageSize,
+        name: name || undefined,
+        onlyCollaborators,
+      },
+    })
     return res.data
   },
   getById: async (id: string): Promise<UserResponse> => {

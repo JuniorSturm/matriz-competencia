@@ -15,25 +15,34 @@ migrator/    Console app para importar planilha Excel
 
 ---
 
-## Inicio rápido com Docker
+## Início rápido com Docker
 
 ```bash
 docker-compose up -d
 ```
 
-Acesse:
-- **Frontend:** http://localhost:3000
-- **API:**      http://localhost:5000
+### Acesso às aplicações
 
-Login padrão Administrador:
-- **E-mail:** admin@empresa.com
-- **Senha:**  Admin@123
+- **Frontend:** `http://localhost:3000`
+- **API:** `http://localhost:5000`
 
-Login padrão Gestor:
-- **E-mail:** gestor@empresa.com
-- **Senha:**  
+### Logins padrões gerados pelo seed
 
-diego.liz@empresa.com
+- **Administrador (Admin global)**
+  - **E-mail:** `admin@empresa.com`
+  - **Senha:** `Admin@123`
+
+- **Gestor**
+  - **E-mail:** `gestor@empresa.com`
+  - **Senha:** `Admin@123`
+
+- **Coordenador**
+  - **E-mail:** `alvadi.pedrao@nddtech.com`
+  - **Senha:** `Admin@123`
+
+- **Colaborador (exemplo)**
+  - **E-mail:** `diego.liz@empresa.com`
+  - **Senha:** `Mudar@123`
 
 ---
 

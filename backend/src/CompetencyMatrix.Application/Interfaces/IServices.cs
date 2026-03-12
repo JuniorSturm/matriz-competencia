@@ -4,14 +4,15 @@ namespace CompetencyMatrix.Application.Interfaces;
 
 public interface IUserService
 {
-    Task<UserResponse?>          GetByIdAsync(Guid id);
-    Task<IEnumerable<UserResponse>> GetAllAsync(Guid? currentUserId = null);
-    Task<IEnumerable<UserResponse>> GetAllByCompanyAsync(int companyId);
-    Task<Guid>                   CreateAsync(CreateUserRequest request, Guid? currentUserId = null);
-    Task                         UpdateAsync(Guid id, UpdateUserRequest request, Guid? currentUserId = null);
-    Task                         ResetPasswordAsync(Guid id, string newPassword);
-    Task                         DeleteAsync(Guid id);
-    Task<bool>                    CanSeeUserAsync(Guid currentUserId, Guid targetUserId);
+    Task<UserResponse?>              GetByIdAsync(Guid id);
+    Task<IEnumerable<UserResponse>>  GetAllAsync(Guid? currentUserId = null);
+    Task<IEnumerable<UserResponse>>  GetAllByCompanyAsync(int companyId);
+    Task<PagedResult<UserResponse>>  GetPagedAsync(Guid? currentUserId, int page, int pageSize, string? nameFilter, bool onlyCollaborators);
+    Task<Guid>                       CreateAsync(CreateUserRequest request, Guid? currentUserId = null);
+    Task                             UpdateAsync(Guid id, UpdateUserRequest request, Guid? currentUserId = null);
+    Task                             ResetPasswordAsync(Guid id, string newPassword);
+    Task                             DeleteAsync(Guid id);
+    Task<bool>                       CanSeeUserAsync(Guid currentUserId, Guid targetUserId);
 }
 
 public interface ISkillService
@@ -20,6 +21,7 @@ public interface ISkillService
     Task<IEnumerable<SkillResponse>> GetAllAsync();
     Task<IEnumerable<SkillResponse>> GetAllByCompanyAsync(int companyId);
     Task<IEnumerable<SkillResponse>> GetByRoleAsync(int roleId);
+    Task<PagedResult<SkillResponse>> GetPagedAsync(int page, int pageSize, int? companyId);
     Task<int>                        CreateAsync(CreateSkillRequest request);
     Task                             UpdateAsync(int id, UpdateSkillRequest request);
     Task                             DeleteAsync(int id);
@@ -54,6 +56,7 @@ public interface IRoleService
     Task<IEnumerable<RoleDetailResponse>> GetAllAsync(Guid? currentUserId, int? companyId = null);
     Task<IEnumerable<RoleResponse>>      GetByCompanyAsync(int companyId, Guid? currentUserId = null);
     Task<RoleDetailResponse?>            GetByIdAsync(int id);
+    Task<PagedResult<RoleDetailResponse>> GetPagedAsync(Guid? currentUserId, int? companyId, int page, int pageSize);
     Task<int>                            CreateAsync(CreateRoleRequest request, Guid? currentUserId = null);
     Task                                 UpdateAsync(int id, UpdateRoleRequest request, Guid? currentUserId = null);
     Task                                 DeleteAsync(int id, Guid? currentUserId = null);

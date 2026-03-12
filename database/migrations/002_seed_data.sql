@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- Matriz de Competências - Seed de Dados
 -- Script único para carga inicial de todos os dados
 -- Gerado automaticamente em: 2026-03-08 15:22
@@ -12,7 +12,20 @@ SET client_encoding = 'UTF8';
 -- ============================================================
 -- TRUNCATE ALL TABLES
 -- ============================================================
-TRUNCATE TABLE skill_assessments, skill_descriptions, skill_expectations, skills, users, grades, roles, skill_categories RESTART IDENTITY CASCADE;
+TRUNCATE TABLE
+    team_competencies,
+    team_members,
+    teams,
+    skill_assessments,
+    skill_descriptions,
+    skill_expectations,
+    skills,
+    users,
+    grades,
+    roles,
+    skill_categories,
+    companies
+RESTART IDENTITY CASCADE;
 
 -- ============================================================
 -- CATEGORIAS DE COMPETÊNCIAS
@@ -26,12 +39,20 @@ INSERT INTO skill_categories (name) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================
--- ROLES (áreas de atuação)
+-- EMPRESA INICIAL
 -- ============================================================
-INSERT INTO roles (name) VALUES ('Desenvolvedor Backend')  ON CONFLICT (name) DO NOTHING;
-INSERT INTO roles (name) VALUES ('Desenvolvedor Frontend') ON CONFLICT (name) DO NOTHING;
-INSERT INTO roles (name) VALUES ('Qualidade')           ON CONFLICT (name) DO NOTHING;
-INSERT INTO roles (name) VALUES ('DevOps')       ON CONFLICT (name) DO NOTHING;
+INSERT INTO companies (name, document, email, phone)
+VALUES ('NDD Tech', '00.000.000/0001-00', 'contato@nddtech.com', '(00) 0000-0000');
+
+-- ============================================================
+-- ROLES (áreas de atuação) por empresa
+-- ============================================================
+INSERT INTO roles (name, description, company_id)
+VALUES
+  ('Desenvolvedor Backend',  NULL, (SELECT id FROM companies WHERE name = 'NDD Tech')),
+  ('Desenvolvedor Frontend', NULL, (SELECT id FROM companies WHERE name = 'NDD Tech')),
+  ('Qualidade',              NULL, (SELECT id FROM companies WHERE name = 'NDD Tech')),
+  ('DevOps',                 NULL, (SELECT id FROM companies WHERE name = 'NDD Tech'));
 
 -- ============================================================
 -- GRADES (senioridade)
@@ -42,18 +63,80 @@ INSERT INTO grades (name, ordinal) VALUES ('PLENO',   2) ON CONFLICT (name) DO N
 INSERT INTO grades (name, ordinal) VALUES ('SENIOR',  3) ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================
--- USUÁRIO GESTOR PADRÃO (senha: Admin@123)
+-- USUÁRIOS INICIAIS
+-- - Admin (global)
+-- - Gestor Padrão (NDD Tech)
+-- - Coordenador Alvadi Pedrão (NDD Tech, líder do time Starship)
+-- Senha hash reutilizada: Admin@123 / Gestor@123
 -- ============================================================
-INSERT INTO users (id, name, email, password, role_id, grade_id, is_manager)
-SELECT
+INSERT INTO users (id, name, email, password, role_id, grade_id, is_manager, is_admin, is_coordinator, company_id, created_at)
+VALUES (
     gen_random_uuid(),
     'Administrador',
     'admin@empresa.com',
     '$2a$11$hJlpe4Kww9XQN2JQUg4EkOvRMRbnXy77zPPSI8Mum359TrO.eX22q',
     NULL,
     NULL,
-    TRUE
-WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@empresa.com');
+    FALSE,
+    TRUE,
+    FALSE,
+    NULL,
+    NOW()
+)
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (id, name, email, password, role_id, grade_id, is_manager, is_admin, is_coordinator, company_id, created_at)
+VALUES (
+    gen_random_uuid(),
+    'Gestor Padrão',
+    'gestor@empresa.com',
+    '$2a$11$hJlpe4Kww9XQN2JQUg4EkOvRMRbnXy77zPPSI8Mum359TrO.eX22q',
+    NULL,
+    NULL,
+    TRUE,
+    FALSE,
+    FALSE,
+    (SELECT id FROM companies WHERE name = 'NDD Tech'),
+    NOW()
+)
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (id, name, email, password, role_id, grade_id, is_manager, is_admin, is_coordinator, company_id, created_at)
+VALUES (
+    gen_random_uuid(),
+    'Alvadi Pedrão',
+    'alvadi.pedrao@nddtech.com',
+    '$2a$11$hJlpe4Kww9XQN2JQUg4EkOvRMRbnXy77zPPSI8Mum359TrO.eX22q',
+    NULL,
+    NULL,
+    FALSE,
+    FALSE,
+    TRUE,
+    (SELECT id FROM companies WHERE name = 'NDD Tech'),
+    NOW()
+)
+ON CONFLICT (email) DO NOTHING;
+
+-- ============================================================
+-- TIME INICIAL (Starship) E LÍDER (Alvadi)
+-- ============================================================
+INSERT INTO teams (company_id, name, description, created_at)
+VALUES (
+  (SELECT id FROM companies WHERE name = 'NDD Tech'),
+  'Starship',
+  NULL,
+  NOW()
+)
+ON CONFLICT (company_id, name) DO NOTHING;
+
+INSERT INTO team_members (team_id, user_id, is_leader)
+SELECT
+  t.id,
+  u.id,
+  TRUE
+FROM teams t, users u
+WHERE t.name = 'Starship' AND u.email = 'alvadi.pedrao@nddtech.com'
+ON CONFLICT (team_id, user_id) DO NOTHING;
 
 -- ============================================================
 -- COMPETÊNCIAS (únicas, sem duplicação)
@@ -6114,6 +6197,15 @@ INSERT INTO skill_assessments (user_id, skill_id, current_level, last_updated) S
 INSERT INTO skill_assessments (user_id, skill_id, current_level, last_updated) SELECT u.id, s.id, 'OURO', NOW() FROM users u, skills s WHERE u.email = 'joao.moraes@empresa.com' AND s.name = 'GIT' ON CONFLICT (user_id, skill_id) DO UPDATE SET current_level = EXCLUDED.current_level;
 INSERT INTO skill_assessments (user_id, skill_id, current_level, last_updated) SELECT u.id, s.id, 'OURO', NOW() FROM users u, skills s WHERE u.email = 'joao.moraes@empresa.com' AND s.name = 'Banco de dados Redis (Cache)' ON CONFLICT (user_id, skill_id) DO UPDATE SET current_level = EXCLUDED.current_level;
 INSERT INTO skill_assessments (user_id, skill_id, current_level, last_updated) SELECT u.id, s.id, 'PRATA', NOW() FROM users u, skills s WHERE u.email = 'joao.moraes@empresa.com' AND s.name = 'C# no .net LTS última versão' ON CONFLICT (user_id, skill_id) DO UPDATE SET current_level = EXCLUDED.current_level;
+
+-- ============================================================
+-- Ajuste final: company_id das competências
+-- ============================================================
+UPDATE skills
+SET company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')
+WHERE company_id IS NULL;
+
+ALTER TABLE skills ALTER COLUMN company_id SET NOT NULL;
 INSERT INTO skill_assessments (user_id, skill_id, current_level, last_updated) SELECT u.id, s.id, 'PRATA', NOW() FROM users u, skills s WHERE u.email = 'joao.moraes@empresa.com' AND s.name = 'NUGET' ON CONFLICT (user_id, skill_id) DO UPDATE SET current_level = EXCLUDED.current_level;
 INSERT INTO skill_assessments (user_id, skill_id, current_level, last_updated) SELECT u.id, s.id, 'OURO', NOW() FROM users u, skills s WHERE u.email = 'joao.moraes@empresa.com' AND s.name = 'Mediator (Biblioteca)' ON CONFLICT (user_id, skill_id) DO UPDATE SET current_level = EXCLUDED.current_level;
 INSERT INTO skill_assessments (user_id, skill_id, current_level, last_updated) SELECT u.id, s.id, 'DESCONHECE', NOW() FROM users u, skills s WHERE u.email = 'joao.moraes@empresa.com' AND s.name = 'Odata' ON CONFLICT (user_id, skill_id) DO UPDATE SET current_level = EXCLUDED.current_level;

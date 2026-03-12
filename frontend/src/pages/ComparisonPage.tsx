@@ -1,17 +1,18 @@
 import { memo, useMemo, useState } from 'react'
 import {
-  Alert, Box, Button, Chip, CircularProgress, FormControl, InputLabel,
-  MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer,
+  Alert, Box, Button, Chip, CircularProgress,
+  Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Typography,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
-import { useUsers } from '../hooks/useUsers'
+import { useUser } from '../hooks/useUsers'
 import { useComparison } from '../hooks/useAssessments'
 import { useSkills } from '../hooks/useSkills'
 import type { ComparisonRow as ComparisonRowType } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
+import { UserPickerDrawer } from '../components/UserPickerDrawer'
 
 const GAP_COLOR = (gap: number) => {
   if (gap <= 0) return 'success'
@@ -78,23 +79,24 @@ const ComparisonRow = memo(function ComparisonRow({ r, category, hasC }: Compari
 })
 
 export default function ComparisonPage() {
-  const { data: users } = useUsers()
   const { data: skills } = useSkills()
   const [userAId, setUserAId] = useState('')
   const [userBId, setUserBId] = useState('')
   const [userCId, setUserCId] = useState('')
   const [run, setRun]         = useState(false)
 
+  const { data: userA } = useUser(userAId || '')
+  const { data: userB } = useUser(userBId || '')
+  const { data: userC } = useUser(userCId || '')
+  const hasC  = !!userCId
+
+  const [pickerOpen, setPickerOpen] = useState<null | 'A' | 'B' | 'C'>(null)
+
   const { data: rows, isLoading, error } = useComparison(
     run ? userAId : '',
     run ? userBId : '',
     run && userCId ? userCId : undefined,
   )
-
-  const userA = useMemo(() => users?.find((u) => u.id === userAId), [users, userAId])
-  const userB = useMemo(() => users?.find((u) => u.id === userBId), [users, userBId])
-  const userC = useMemo(() => users?.find((u) => u.id === userCId), [users, userCId])
-  const hasC  = !!userCId
 
   const categoryMap = useMemo(() => {
     const map: Record<number, string> = {}
@@ -124,27 +126,27 @@ export default function ComparisonPage() {
         }}
       >
         <Box display='flex' flexDirection={{ xs: 'column', sm: 'row' }} gap={2} flexWrap='wrap' alignItems='stretch'>
-          <FormControl sx={{ minWidth: { xs: 0, sm: 220 }, flex: { sm: 1 } }}>
-            <InputLabel>Colaborador A</InputLabel>
-            <Select label='Colaborador A' value={userAId} onChange={(e) => { setUserAId(e.target.value); setRun(false) }}>
-              <MenuItem value=''>Selecione...</MenuItem>
-              {users?.filter((u) => !u.isManager && !u.isCoordinator).map((u) => <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl sx={{ minWidth: { xs: 0, sm: 220 }, flex: { sm: 1 } }}>
-            <InputLabel>Colaborador B</InputLabel>
-            <Select label='Colaborador B' value={userBId} onChange={(e) => { setUserBId(e.target.value); setRun(false) }}>
-              <MenuItem value=''>Selecione...</MenuItem>
-              {users?.filter((u) => !u.isManager && !u.isCoordinator).map((u) => <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl sx={{ minWidth: { xs: 0, sm: 220 }, flex: { sm: 1 } }}>
-            <InputLabel>Colaborador C (opcional)</InputLabel>
-            <Select label='Colaborador C (opcional)' value={userCId} onChange={(e) => { setUserCId(e.target.value); setRun(false) }}>
-              <MenuItem value=''>Nenhum</MenuItem>
-              {users?.filter((u) => !u.isManager && !u.isCoordinator).map((u) => <MenuItem key={u.id} value={u.id}>{u.name}</MenuItem>)}
-            </Select>
-          </FormControl>
+          <Button
+            variant='outlined'
+            sx={{ minWidth: { xs: '100%', sm: 220 }, textAlign: 'left' }}
+            onClick={() => setPickerOpen('A')}
+          >
+            {userA ? `Colaborador A: ${userA.name}` : 'Selecionar colaborador A'}
+          </Button>
+          <Button
+            variant='outlined'
+            sx={{ minWidth: { xs: '100%', sm: 220 }, textAlign: 'left' }}
+            onClick={() => setPickerOpen('B')}
+          >
+            {userB ? `Colaborador B: ${userB.name}` : 'Selecionar colaborador B'}
+          </Button>
+          <Button
+            variant='outlined'
+            sx={{ minWidth: { xs: '100%', sm: 220 }, textAlign: 'left' }}
+            onClick={() => setPickerOpen('C')}
+          >
+            {userC ? `Colaborador C: ${userC.name}` : 'Selecionar colaborador C (opcional)'}
+          </Button>
           <Button
             variant='contained'
             startIcon={<CompareArrowsIcon />}
@@ -229,6 +231,25 @@ export default function ComparisonPage() {
           Nenhuma competência em comum encontrada. Verifique se os colaboradores pertencem a times e se os times possuem competências vinculadas.
         </Alert>
       )}
+
+      <UserPickerDrawer
+        open={pickerOpen === 'A'}
+        title='Selecionar colaborador A'
+        onClose={() => setPickerOpen(null)}
+        onSelect={(u) => { setUserAId(u.id); setRun(false) }}
+      />
+      <UserPickerDrawer
+        open={pickerOpen === 'B'}
+        title='Selecionar colaborador B'
+        onClose={() => setPickerOpen(null)}
+        onSelect={(u) => { setUserBId(u.id); setRun(false) }}
+      />
+      <UserPickerDrawer
+        open={pickerOpen === 'C'}
+        title='Selecionar colaborador C'
+        onClose={() => setPickerOpen(null)}
+        onSelect={(u) => { setUserCId(u.id); setRun(false) }}
+      />
     </Box>
   )
 }

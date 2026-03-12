@@ -17,6 +17,13 @@ export const useRolesList = (companyId?: number | null) =>
     queryFn: () => roleService.getAll(companyId ?? undefined),
   })
 
+export const useRolesPagedList = (page: number, pageSize: number, companyId?: number | null) =>
+  useQuery({
+    queryKey: ['roles-paged', page, pageSize, companyId],
+    queryFn: () => roleService.getPaged(page, pageSize, companyId ?? undefined),
+    keepPreviousData: true,
+  })
+
 export const useNiveis = () =>
   useQuery({ queryKey: ['niveis'], queryFn: roleGradeService.getNiveis })
 

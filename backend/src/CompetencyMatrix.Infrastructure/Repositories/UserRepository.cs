@@ -89,6 +89,18 @@ public class UserRepository : IUserRepository
         );
     }
 
+    public async Task<int> CountAllAsync()
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM users");
+    }
+
+    public async Task<int> CountManagersAsync()
+    {
+        using var conn = _ctx.CreateConnection();
+        return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM users WHERE is_manager = TRUE");
+    }
+
     public async Task<Guid> CreateAsync(User user)
     {
         using var conn = _ctx.CreateConnection();

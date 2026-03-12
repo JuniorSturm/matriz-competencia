@@ -29,13 +29,39 @@ public class RoleService : IRoleService
         if (scopeCompanyId.HasValue)
         {
             var roles = await _roleRepo.GetRolesByCompanyAsync(scopeCompanyId.Value);
-            var company = await _companyRepo.GetByIdAsync(scopeCompanyId.Value);
-            return roles.Select(r => MapDetail(r, company?.Name));
+            var companyName = await _companyRepo.GetNameByIdAsync(scopeCompanyId.Value);
+            return roles.Select(r => MapDetail(r, companyName));
         }
         var all = await _roleRepo.GetAllRolesAsync();
         var list = all.ToList();
-        var companies = await Task.WhenAll(list.Select(r => _companyRepo.GetByIdAsync(r.CompanyId)));
-        return list.Zip(companies, (r, c) => MapDetail(r, c?.Name));
+        var companyNames = await Task.WhenAll(list.Select(r => _companyRepo.GetNameByIdAsync(r.CompanyId)));
+        return list.Zip(companyNames, (r, name) => MapDetail(r, name));
+    }
+
+    public async Task<PagedResult<RoleDetailResponse>> GetPagedAsync(Guid? currentUserId, int? companyId, int page, int pageSize)
+    {
+        if (page <= 0) page = 1;
+        if (pageSize <= 0) pageSize = 50;
+
+        var skip = (page - 1) * pageSize;
+
+        var scopeCompanyId = await ResolveScopeCompanyIdAsync(currentUserId, companyId);
+        if (scopeCompanyId.HasValue)
+        {
+            var roles = (await _roleRepo.GetRolesByCompanyAsync(scopeCompanyId.Value)).ToList();
+            var total = roles.Count;
+            var pageRoles = roles.Skip(skip).Take(pageSize).ToList();
+            var companyName = await _companyRepo.GetNameByIdAsync(scopeCompanyId.Value);
+            var items = pageRoles.Select(r => MapDetail(r, companyName));
+            return new PagedResult<RoleDetailResponse>(items, total);
+        }
+
+        var all = (await _roleRepo.GetAllRolesAsync()).ToList();
+        var totalAll = all.Count;
+        var pageAll = all.Skip(skip).Take(pageSize).ToList();
+        var companyNames = await Task.WhenAll(pageAll.Select(r => _companyRepo.GetNameByIdAsync(r.CompanyId)));
+        var mapped = pageAll.Zip(companyNames, (r, name) => MapDetail(r, name));
+        return new PagedResult<RoleDetailResponse>(mapped, totalAll);
     }
 
     public async Task<IEnumerable<RoleResponse>> GetByCompanyAsync(int companyId, Guid? currentUserId = null)
