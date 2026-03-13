@@ -1,3 +1,4 @@
+using CompetencyMatrix.Application;
 using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using CompetencyMatrix.Domain.Entities;
@@ -44,7 +45,9 @@ public class RoleService : IRoleService
     public async Task<PagedResult<RoleDetailResponse>> GetPagedAsync(Guid? currentUserId, int? companyId, int page, int pageSize)
     {
         if (page <= 0) page = 1;
-        if (pageSize <= 0) pageSize = 50;
+        if (pageSize <= 0) pageSize = PaginationDefaults.DefaultPageSize;
+
+        pageSize = Math.Min(pageSize, PaginationDefaults.MaxPageSize);
 
         var skip = (page - 1) * pageSize;
 

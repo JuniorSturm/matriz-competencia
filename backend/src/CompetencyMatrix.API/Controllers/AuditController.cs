@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CompetencyMatrix.Application;
 using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -29,14 +30,16 @@ public class AuditController : ControllerBase
     [HttpGet("logs")]
     public async Task<ActionResult<PagedResult<AuditLogResponse>>> GetLogs(
         [FromQuery] int       page      = 1,
-        [FromQuery] int      pageSize  = 50,
-        [FromQuery] string?  entityType = null,
-        [FromQuery] string?  operation  = null,
+        [FromQuery] int       pageSize  = PaginationDefaults.DefaultPageSize,
+        [FromQuery] string?   entityType = null,
+        [FromQuery] string?   operation  = null,
         [FromQuery] DateTime? dateFrom  = null,
         [FromQuery] DateTime? dateTo    = null)
     {
         if (page <= 0 || pageSize <= 0)
             return BadRequest(new { message = "Parâmetros de paginação inválidos." });
+
+        pageSize = Math.Min(pageSize, PaginationDefaults.MaxPageSize);
 
         var currentUserId = GetCurrentUserId(User);
         var role          = User.FindFirstValue(ClaimTypes.Role);

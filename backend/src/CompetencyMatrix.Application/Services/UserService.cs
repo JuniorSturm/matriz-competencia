@@ -1,4 +1,5 @@
 using System.Linq;
+using CompetencyMatrix.Application;
 using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using CompetencyMatrix.Domain.Entities;
@@ -73,6 +74,9 @@ public class UserService : IUserService
             return Enumerable.Empty<UserResponse>();
         }
 
+        if (!currentUser.IsAdmin && !currentUser.IsManager && !currentUser.IsCoordinator && !currentUser.CompanyId.HasValue)
+            return Enumerable.Empty<UserResponse>();
+
         return (await _repo.GetAllAsync()).Select(Map);
     }
 
@@ -85,7 +89,9 @@ public class UserService : IUserService
     public async Task<PagedResult<UserResponse>> GetPagedAsync(Guid? currentUserId, int page, int pageSize, string? nameFilter, bool onlyCollaborators)
     {
         if (page <= 0) page = 1;
-        if (pageSize <= 0) pageSize = 50;
+        if (pageSize <= 0) pageSize = PaginationDefaults.DefaultPageSize;
+
+        pageSize = Math.Min(pageSize, PaginationDefaults.MaxPageSize);
 
         var all = await GetAllAsync(currentUserId);
         var query = all.AsQueryable();

@@ -123,3 +123,16 @@ psql -U postgres -d competency_matrix -f seed.sql
 | Avaliar            | ✔       | ✗        |
 | Ver avaliações     | ✔       | ✔ (própria) |
 | Comparar           | ✔       | ✗        |
+
+---
+
+## Regras de paginação e isolamento por empresa
+
+- **Paginação da API**
+  - Endpoints paginados (`/users/paged`, `/skills/paged`, `/roles/paged`, `/audit/logs`) usam:
+    - `pageSize` padrão: 50;
+    - `pageSize` máximo: 100 (valores maiores são limitados a 100).
+- **Escopo por empresa**
+  - Apenas usuários com perfil **ADMIN** podem usar escopo global (dados de todas as empresas).
+  - Usuários não-admin sempre são filtrados pela própria empresa, quando houver `CompanyId`.
+  - Usuário não-admin **sem** empresa associada recebe listas vazias em listagens multi-tenant (skills, usuários, auditoria), e não enxerga dados de outras empresas.

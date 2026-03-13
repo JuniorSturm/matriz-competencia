@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CompetencyMatrix.Application;
 using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -47,17 +48,24 @@ public class SkillController : ControllerBase
             var currentUser = await _userService.GetByIdAsync(currentUserId.Value);
             if (currentUser?.CompanyId != null)
                 return Ok(await _service.GetAllByCompanyAsync(currentUser.CompanyId.Value));
+
+            return Ok(Array.Empty<SkillResponse>());
         }
 
-        return Ok(await _service.GetAllAsync());
+        return Ok(Array.Empty<SkillResponse>());
     }
 
     [HttpGet("paged")]
     [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
-    public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] int? companyId = null)
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = PaginationDefaults.DefaultPageSize,
+        [FromQuery] int? companyId = null)
     {
         if (page <= 0 || pageSize <= 0)
             return BadRequest(new { message = "Parâmetros de paginação inválidos." });
+
+        pageSize = Math.Min(pageSize, PaginationDefaults.MaxPageSize);
 
         var currentUserId = GetCurrentUserId(User);
         var role          = User.FindFirstValue(ClaimTypes.Role);

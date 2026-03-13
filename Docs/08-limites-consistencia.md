@@ -124,6 +124,23 @@ Resumo do que alterar:
 - Admin continua podendo ver dados de todas as empresas onde o desenho atual permite.
 - Nenhum endpoint não-admin retorna dados de outra empresa por uso indevido de companyId null.
 
+### Implementação atual (resumo)
+
+- Endpoints paginados (`/users/paged`, `/skills/paged`, `/roles/paged`, `/audit/logs`) aplicam:
+  - `pageSize` padrão: 50 (`PaginationDefaults.DefaultPageSize`);
+  - `pageSize` máximo: 100 (`PaginationDefaults.MaxPageSize`), via `Math.Min(pageSize, MaxPageSize)`.
+- `SkillController.GetAll`:
+  - Admin:
+    - Com `companyId` no query string → lista apenas daquela empresa;
+    - Sem `companyId` → lista global de skills.
+  - Não-admin:
+    - Com usuário atual vinculado a uma empresa → lista apenas as skills da empresa;
+    - Sem `CompanyId` no usuário atual → retorna lista vazia.
+- `UserService.GetAllAsync`:
+  - Admin → lista global de usuários;
+  - Manager/Coordinator → já restritos conforme regra existente por empresa/time;
+  - Não-admin sem `CompanyId` → retorna lista vazia em vez de todos os usuários.
+
 ---
 
 ## Ordem sugerida de execução

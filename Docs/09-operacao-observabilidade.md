@@ -20,7 +20,7 @@ Hoje:
 |---|------|----------|
 | 1 | Health check na API | Endpoint(s) para readiness/liveness e, se possível, verificação de dependência (Postgres). |
 | 2 | Rate limiting | Limitar requisições por IP (e opcionalmente por tenant) para evitar abuso. |
-| 3 | Logging estruturado | Serilog (ou equivalente) com saída JSON e, onde fizer sentido, companyId/userId no contexto. |
+| 3 | Logging estruturado | Serilog com saída JSON e, onde fizer sentido, companyId/userId no contexto. |
 
 Cada seção abaixo é um **item executável** para um agente.
 

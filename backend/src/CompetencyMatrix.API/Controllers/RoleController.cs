@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CompetencyMatrix.Application;
 using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -29,10 +30,15 @@ public class RoleController : ControllerBase
     }
 
     [HttpGet("paged")]
-    public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] int? companyId = null)
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = PaginationDefaults.DefaultPageSize,
+        [FromQuery] int? companyId = null)
     {
         if (page <= 0 || pageSize <= 0)
             return BadRequest(new { message = "Parâmetros de paginação inválidos." });
+
+        pageSize = Math.Min(pageSize, PaginationDefaults.MaxPageSize);
 
         var result = await _service.GetPagedAsync(GetCurrentUserId(User), companyId, page, pageSize);
         return Ok(result);

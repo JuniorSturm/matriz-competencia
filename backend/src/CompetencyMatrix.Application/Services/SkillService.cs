@@ -163,13 +163,15 @@ public class SkillService : ISkillService
         };
         await _repo.UpsertExpectationAsync(expectation);
 
+        var skill = await _repo.GetByIdAsync(request.SkillId);
+
         await SafeAuditAsync(
             "SkillExpectation",
             $"{request.SkillId}:{request.RoleId}:{request.GradeId}",
             "UPSERT",
             before: null,
             after: request,
-            companyId: null);
+            companyId: skill?.CompanyId);
     }
 
     public async Task<IEnumerable<SkillExpectationDto>> GetExpectationsBySkillAsync(int skillId)
@@ -180,6 +182,8 @@ public class SkillService : ISkillService
 
     public async Task DeleteExpectationAsync(int skillId, int roleId, int gradeId)
     {
+        var skill = await _repo.GetByIdAsync(skillId);
+
         await _repo.DeleteExpectationAsync(skillId, roleId, gradeId);
 
         await SafeAuditAsync(
@@ -188,7 +192,7 @@ public class SkillService : ISkillService
             "DELETE",
             before: new { skillId, roleId, gradeId },
             after: null,
-            companyId: null);
+            companyId: skill?.CompanyId);
     }
 
     public async Task<IEnumerable<SkillDescriptionDto>> GetDescriptionsAsync(int skillId)
@@ -208,9 +212,11 @@ public class SkillService : ISkillService
             SkillId     = request.SkillId,
             RoleId      = request.RoleId,
             Level       = request.Level,
-            Description = request.Description
+            Description = request.Description ?? string.Empty
         };
         await _repo.UpsertDescriptionAsync(desc);
+
+        var skill = await _repo.GetByIdAsync(request.SkillId);
 
         await SafeAuditAsync(
             "SkillDescription",
@@ -218,7 +224,7 @@ public class SkillService : ISkillService
             "UPSERT",
             before: null,
             after: request,
-            companyId: null);
+            companyId: skill?.CompanyId);
     }
 
     private static SkillResponse Map(Skill s) =>
