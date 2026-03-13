@@ -26,6 +26,13 @@ docker-compose up -d
 - **Frontend:** `http://localhost:3000`
 - **API:** `http://localhost:5100`
 
+### Health check da API
+
+- **Liveness:** `GET http://localhost:5100/health/live`
+- **Readiness (inclui Postgres):** `GET http://localhost:5100/health/ready`
+  - Retorna **200** quando a API está pronta e consegue acessar o banco.
+  - Retorna **503** (ou status unhealthy) quando o Postgres está indisponível ou a conexão falha.
+
 ### Logins padrões gerados pelo seed
 
 - **Administrador (Admin global)**
@@ -110,6 +117,27 @@ psql -U postgres -d competency_matrix -f seed.sql
 | `AllowedHosts`              | Hosts permitidos (separados por `;`)            | Em prod: listar domínios; `*` não recomendado |
 
 **Produção:** `Jwt__Secret` é obrigatório e deve ter no mínimo 32 caracteres. Nunca use o valor de exemplo do docker-compose em produção; defina a variável no host ou em um arquivo `.env` não versionado. Configure `AllowedHosts` (ou `appsettings.Production.json`) com os domínios permitidos separados por `;`; usar `*` desabilita a validação e não é recomendado em produção.
+
+---
+
+## Rate limiting da API
+
+- A API aplica **rate limiting por IP** usando janela fixa:
+  - Até **200 requisições por minuto** por endereço IP.
+  - Respostas acima do limite retornam **HTTP 429** com mensagem em JSON.
+- Exceções:
+  - Endpoints de health (`/health/live`, `/health/ready`) não são limitados.
+  - Endpoint de login (`/auth/login`) não é limitado para não prejudicar a experiência do usuário.
+
+---
+
+## Logging estruturado
+
+- A API utiliza **Serilog** como logger principal.
+- Em **desenvolvimento**, os logs são enviados para o console em formato legível.
+- Em **produção** (ou quando configurado com `Serilog`), os logs são emitidos em **JSON compacto**, incluindo:
+  - `@t` (timestamp), `@l` (nível), `@m` (mensagem) e exceções quando houver.
+  - Propriedades de contexto como `UserId` e `CompanyId` quando o usuário está autenticado.
 
 ---
 
