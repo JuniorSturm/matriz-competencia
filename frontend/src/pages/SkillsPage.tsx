@@ -14,6 +14,7 @@ import { useCompanies } from '../hooks/useCompanies'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
+import type { SkillResponse } from '../types'
 
 export default function SkillsPage() {
   const navigate = useNavigate()
@@ -32,7 +33,7 @@ export default function SkillsPage() {
   const skills = data?.items ?? []
   const totalCount = data?.totalCount ?? 0
 
-  const filteredSkills = useMemo(() => {
+  const filteredSkills = useMemo<SkillResponse[]>(() => {
     if (!skills) return []
     if (!nameFilter.trim()) return skills
     const lower = nameFilter.toLowerCase()
@@ -128,8 +129,8 @@ export default function SkillsPage() {
               <TableCell align='right' sx={{ width: 56 }}>Ações</TableCell>
             </TableRow>
           </TableHead>
-          <TableBody>
-            {filteredSkills.map((s) => (
+            <TableBody>
+            {filteredSkills.map((s: SkillResponse) => (
               <TableRow key={s.id}>
                 <TableCell>
                   <Typography variant='body2' fontWeight={600}>{s.name}</Typography>

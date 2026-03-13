@@ -24,7 +24,7 @@ docker-compose up -d
 ### Acesso às aplicações
 
 - **Frontend:** `http://localhost:3000`
-- **API:** `http://localhost:5000`
+- **API:** `http://localhost:5100`
 
 ### Logins padrões gerados pelo seed
 
@@ -99,13 +99,17 @@ psql -U postgres -d competency_matrix -f seed.sql
 
 ## Variáveis de ambiente (API)
 
-| Variável                     | Descrição               | Padrão                        |
-|-----------------------------|-------------------------|-------------------------------|
-| `ConnectionStrings__Default` | Connection string PG    | localhost:5432                |
-| `Jwt__Secret`               | Chave JWT (mín 32 chars)| —                             |
-| `Jwt__Issuer`               | Emissor JWT             | CompetencyMatrix              |
-| `Jwt__Audience`             | Audiência JWT           | CompetencyMatrix              |
-| `Jwt__ExpiryMinutes`        | Expiração do token      | 480                           |
+| Variável                     | Descrição                                        | Padrão / Notas                        |
+|-----------------------------|--------------------------------------------------|----------------------------------------|
+| `ConnectionStrings__Default` | Connection string PostgreSQL                    | localhost:5432                         |
+| `Cors__AllowedOrigins`      | Origens CORS permitidas (separadas por `;`)     | Em prod: ex. `https://app.seudominio.com` |
+| `Jwt__Secret`               | Chave JWT (mín. 32 caracteres)                  | **Obrigatório em produção**; nunca usar valor de exemplo |
+| `Jwt__Issuer`               | Emissor JWT                                     | CompetencyMatrix                       |
+| `Jwt__Audience`             | Audiência JWT                                   | CompetencyMatrix                       |
+| `Jwt__ExpiryMinutes`        | Expiração do token em minutos                   | 480                                    |
+| `AllowedHosts`              | Hosts permitidos (separados por `;`)            | Em prod: listar domínios; `*` não recomendado |
+
+**Produção:** `Jwt__Secret` é obrigatório e deve ter no mínimo 32 caracteres. Nunca use o valor de exemplo do docker-compose em produção; defina a variável no host ou em um arquivo `.env` não versionado. Configure `AllowedHosts` (ou `appsettings.Production.json`) com os domínios permitidos separados por `;`; usar `*` desabilita a validação e não é recomendado em produção.
 
 ---
 

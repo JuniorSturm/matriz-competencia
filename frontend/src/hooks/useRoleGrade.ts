@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { roleService } from '../services/roleService'
 import { roleGradeService } from '../services/roleGradeService'
+import type { PagedResult, RoleDetailResponse } from '../types'
 
 /** Roles da empresa (para dropdown em Colaborador e Competência). Só busca quando companyId está definido. */
 export const useRolesByCompany = (companyId: number | null) =>
@@ -18,10 +19,9 @@ export const useRolesList = (companyId?: number | null) =>
   })
 
 export const useRolesPagedList = (page: number, pageSize: number, companyId?: number | null) =>
-  useQuery({
+  useQuery<PagedResult<RoleDetailResponse>>({
     queryKey: ['roles-paged', page, pageSize, companyId],
     queryFn: () => roleService.getPaged(page, pageSize, companyId ?? undefined),
-    keepPreviousData: true,
   })
 
 export const useNiveis = () =>

@@ -109,7 +109,7 @@ export default function AuditPage() {
   const [dateFrom, setDateFrom] = useState(() => getTodayISO())
   const [dateTo, setDateTo] = useState(() => getTodayISO())
 
-  const filters: AuditFilters = useMemo(() => {
+  const filters = useMemo<AuditFilters | undefined>(() => {
     const f: AuditFilters = {}
     if (entityFilter) f.entityType = entityFilter
     if (operationFilter) f.operation = operationFilter
@@ -127,7 +127,7 @@ export default function AuditPage() {
     return f
   }, [entityFilter, operationFilter, dateFrom, dateTo])
 
-  const { data, isLoading, error, isFetching } = useAuditLogs(page + 1, ROWS_PER_PAGE, filters)
+  const { data, isLoading, error } = useAuditLogs(page + 1, ROWS_PER_PAGE, filters)
 
   const logs: AuditLogResponse[] = data?.items ?? []
   const total = data?.totalCount ?? 0

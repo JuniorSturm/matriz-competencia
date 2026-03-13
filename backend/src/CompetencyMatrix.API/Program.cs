@@ -40,8 +40,9 @@ builder.Services.AddSingleton<IJwtService,     JwtService>();
 builder.Services.AddHttpContextAccessor();
 
 // ─── JWT ──────────────────────────────────────────────────────────────────────
-var jwtSecret = builder.Configuration["Jwt:Secret"]
-    ?? throw new InvalidOperationException("Jwt:Secret not configured.");
+var jwtSecret = builder.Configuration["Jwt:Secret"];
+if (string.IsNullOrWhiteSpace(jwtSecret))
+    throw new InvalidOperationException("Jwt:Secret not configured. In production set Jwt__Secret (min. 32 characters).");
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -62,9 +63,13 @@ builder.Services
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 
-// ─── CORS (permitir frontend em dev) ─────────────────────────────────────────
+// ─── CORS (origens por configuração; fallback localhost em dev) ───────────────
+var corsOrigins = builder.Configuration["Cors:AllowedOrigins"];
+if (string.IsNullOrWhiteSpace(corsOrigins))
+    corsOrigins = "http://localhost:5173;http://localhost:5175;http://localhost:3000";
+var origins = corsOrigins.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.WithOrigins("http://localhost:5173", "http://localhost:5175", "http://localhost:3000")
+    p.WithOrigins(origins)
      .AllowAnyMethod()
      .AllowAnyHeader()
 ));

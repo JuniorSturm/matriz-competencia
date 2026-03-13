@@ -18,6 +18,7 @@ services:
       timeout: 5s
       retries: 10
 
+  # Em produção: substitua Jwt__Secret por variável de ambiente ou arquivo .env não versionado.
   api:
     build:
       context: ./backend
@@ -30,8 +31,9 @@ services:
       Jwt__Issuer: "CompetencyMatrix"
       Jwt__Audience: "CompetencyMatrix"
       Jwt__ExpiryMinutes: "480"
+      AllowedHosts: "*"
     ports:
-      - "5000:5000"
+      - "5100:5000"
     depends_on:
       postgres:
         condition: service_healthy

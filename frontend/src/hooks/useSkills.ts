@@ -1,6 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { skillService } from '../services/skillService'
-import type { CreateSkillRequest, UpdateSkillRequest, UpsertExpectationRequest, UpsertDescriptionRequest } from '../types'
+import type {
+  CreateSkillRequest,
+  UpdateSkillRequest,
+  UpsertExpectationRequest,
+  UpsertDescriptionRequest,
+  PagedResult,
+  SkillResponse,
+} from '../types'
 
 export const useSkills = (roleId?: number, companyId?: number, enabled: boolean = true) =>
   useQuery({ queryKey: ['skills', roleId, companyId], queryFn: () => skillService.getAll(roleId, companyId), enabled })
@@ -13,10 +20,9 @@ export const useSkill = (id: number | null) =>
   })
 
 export const usePagedSkills = (page: number, pageSize: number, companyId?: number) =>
-  useQuery({
+  useQuery<PagedResult<SkillResponse>>({
     queryKey: ['skills-paged', page, pageSize, companyId],
     queryFn: () => skillService.getPaged(page, pageSize, companyId),
-    keepPreviousData: true,
   })
 
 export const useSkillDescriptions = (skillId: number | null) =>

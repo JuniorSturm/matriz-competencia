@@ -94,7 +94,7 @@ export function UserPickerDrawer({ open, title, onClose, onSelect }: UserPickerD
                 </TableRow>
               </TableHead>
               <TableBody>
-                {users.map((u) => (
+                {users.map((u: UserResponse) => (
                   <TableRow key={u.id} hover>
                     <TableCell width={80}>
                       <Button

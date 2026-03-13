@@ -6,6 +6,9 @@ COPY ["src/CompetencyMatrix.Application/CompetencyMatrix.Application.csproj", "C
 COPY ["src/CompetencyMatrix.Domain/CompetencyMatrix.Domain.csproj",          "CompetencyMatrix.Domain/"]
 COPY ["src/CompetencyMatrix.Infrastructure/CompetencyMatrix.Infrastructure.csproj", "CompetencyMatrix.Infrastructure/"]
 
+# Garante que a pasta de fallback de pacotes usada nos assets exista no ambiente Linux
+RUN mkdir -p "C:\Program Files (x86)\Microsoft Visual Studio\Shared\NuGetPackages"
+
 RUN dotnet restore "CompetencyMatrix.API/CompetencyMatrix.API.csproj"
 
 COPY src/ .
