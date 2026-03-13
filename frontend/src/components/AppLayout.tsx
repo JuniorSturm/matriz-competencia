@@ -15,6 +15,7 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import BusinessIcon from '@mui/icons-material/Business'
 import WorkIcon from '@mui/icons-material/Work'
 import GroupsIcon from '@mui/icons-material/Groups'
+import HistoryIcon from '@mui/icons-material/History'
 
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { label: 'Times',         icon: <GroupsIcon />,         path: '/teams',       managerOnly: true,  adminOnly: false, coordinatorOk: true },
   { label: 'Avaliações',    icon: <AssessmentIcon />,     path: '/assessments', managerOnly: false, adminOnly: false, coordinatorOk: true },
   { label: 'Comparação',    icon: <CompareArrowsIcon />,  path: '/comparison',  managerOnly: true,  adminOnly: false, coordinatorOk: true },
+  { label: 'Auditoria',     icon: <HistoryIcon />,        path: '/audit',       managerOnly: true,  adminOnly: false, coordinatorOk: true },
 ]
 
 export default function AppLayout({ children }: { children: ReactNode }) {

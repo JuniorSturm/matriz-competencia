@@ -6,15 +6,21 @@ namespace CompetencyMatrix.Application.Services;
 
 public class TeamService : ITeamService
 {
-    private readonly ITeamRepository _teamRepo;
-    private readonly IUserRepository _userRepo;
+    private readonly ITeamRepository    _teamRepo;
+    private readonly IUserRepository    _userRepo;
     private readonly ICompanyRepository _companyRepo;
+    private readonly IAuditService      _audit;
 
-    public TeamService(ITeamRepository teamRepo, IUserRepository userRepo, ICompanyRepository companyRepo)
+    public TeamService(
+        ITeamRepository    teamRepo,
+        IUserRepository    userRepo,
+        ICompanyRepository companyRepo,
+        IAuditService      audit)
     {
-        _teamRepo   = teamRepo;
-        _userRepo   = userRepo;
+        _teamRepo    = teamRepo;
+        _userRepo    = userRepo;
         _companyRepo = companyRepo;
+        _audit       = audit;
     }
 
     public async Task<TeamResponse?> GetByIdAsync(int id)
@@ -121,6 +127,22 @@ public class TeamService : ITeamService
         if (request.CompetencyIds is { Count: > 0 })
             await _teamRepo.SetTeamCompetenciesAsync(id, request.CompetencyIds);
 
+        await SafeAuditAsync(
+            "Team",
+            id.ToString(),
+            "CREATE",
+            before: null,
+            after: new
+            {
+                Id          = id,
+                team.CompanyId,
+                team.Name,
+                team.Description,
+                Members      = members.Select(m => new { m.UserId, m.IsLeader }).ToList(),
+                Competencies = request.CompetencyIds,
+            },
+            companyId: team.CompanyId);
+
         return id;
     }
 
@@ -134,6 +156,14 @@ public class TeamService : ITeamService
         var desc = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         if (desc?.Length > teamDescriptionMaxLength)
             throw new InvalidOperationException($"A descrição do time não pode ter mais de {teamDescriptionMaxLength} caracteres.");
+
+        var before = new
+        {
+            team.Id,
+            team.CompanyId,
+            team.Name,
+            team.Description,
+        };
 
         team.Name        = request.Name.Trim();
         team.Description = desc;
@@ -149,13 +179,28 @@ public class TeamService : ITeamService
 
         if (request.CompetencyIds is not null)
             await _teamRepo.SetTeamCompetenciesAsync(id, request.CompetencyIds);
+
+        await SafeAuditAsync(
+            "Team",
+            id.ToString(),
+            "UPDATE",
+            before,
+            new
+            {
+                team.Id,
+                team.CompanyId,
+                team.Name,
+                team.Description,
+                Members = members.Select(m => new { m.UserId, m.IsLeader }).ToList(),
+                Competencies = request.CompetencyIds,
+            },
+            companyId: team.CompanyId);
     }
 
     public async Task DeleteAsync(int id)
     {
-        var team = await _teamRepo.GetByIdAsync(id);
-        if (team is null)
-            throw new KeyNotFoundException($"Time {id} não encontrado.");
+        var team = await _teamRepo.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Time {id} não encontrado.");
 
         var members = await _teamRepo.GetMemberDetailsAsync(id);
         if (members.Any())
@@ -166,6 +211,20 @@ public class TeamService : ITeamService
             throw new InvalidOperationException("Não é possível excluir o time: existem competências vinculadas. Remova as competências do time antes de excluir.");
 
         await _teamRepo.DeleteAsync(id);
+
+        await SafeAuditAsync(
+            "Team",
+            id.ToString(),
+            "DELETE",
+            before: new
+            {
+                team.Id,
+                team.CompanyId,
+                team.Name,
+                team.Description,
+            },
+            after: null,
+            companyId: team.CompanyId);
     }
 
     public Task<IEnumerable<Guid>> GetAssignedMemberIdsAsync(int? excludeTeamId = null) =>
@@ -226,5 +285,23 @@ public class TeamService : ITeamService
             members.Select(m => new TeamMemberResponse(m.UserId, m.UserName, m.UserEmail, m.IsLeader)).ToList(),
             competencyIds
         );
+    }
+
+    private Task SafeAuditAsync(
+        string  entityType,
+        string  entityId,
+        string  operation,
+        object? before,
+        object? after,
+        int?    companyId)
+    {
+        try
+        {
+            return _audit.LogAsync(entityType, entityId, operation, before, after, companyId);
+        }
+        catch
+        {
+            return Task.CompletedTask;
+        }
     }
 }

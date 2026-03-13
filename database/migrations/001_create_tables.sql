@@ -117,6 +117,25 @@ CREATE TABLE IF NOT EXISTS team_competencies (
     PRIMARY KEY (team_id, skill_id)
 );
 
+-- Auditoria de operações (CREATE / UPDATE / DELETE)
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id           BIGSERIAL PRIMARY KEY,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    user_id      UUID NULL REFERENCES users(id),
+    user_email   VARCHAR(255),
+    ip_address   VARCHAR(64),
+
+    entity_type  VARCHAR(100) NOT NULL,
+    entity_id    TEXT         NOT NULL,
+    operation    VARCHAR(16)  NOT NULL,
+
+    company_id   INT NULL REFERENCES companies(id),
+    team_id      INT NULL REFERENCES teams(id),
+
+    payload      JSONB
+);
+
 -- ============================================================
 -- Índices
 -- ============================================================
@@ -148,3 +167,11 @@ CREATE INDEX IF NOT EXISTS idx_skill_assessments_skill
     ON skill_assessments (skill_id);
 CREATE INDEX IF NOT EXISTS idx_skill_descriptions_role
     ON skill_descriptions (role_id);
+
+-- Auditoria: paginação e filtros por empresa/usuário
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
+    ON audit_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_company_created_at
+    ON audit_logs (company_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_created_at
+    ON audit_logs (user_id, created_at DESC);

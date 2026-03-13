@@ -4,6 +4,7 @@ using CompetencyMatrix.Application.Services;
 using CompetencyMatrix.Infrastructure.Data;
 using CompetencyMatrix.Infrastructure.Repositories;
 using CompetencyMatrix.Infrastructure.Security;
+using CompetencyMatrix.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -21,7 +22,8 @@ builder.Services.AddScoped<ISkillRepository,      SkillRepository>();
 builder.Services.AddScoped<IAssessmentRepository, AssessmentRepository>();
 builder.Services.AddScoped<IRoleGradeRepository,  RoleGradeRepository>();
 builder.Services.AddScoped<ICompanyRepository,    CompanyRepository>();
-builder.Services.AddScoped<ITeamRepository,     TeamRepository>();
+builder.Services.AddScoped<ITeamRepository,       TeamRepository>();
+builder.Services.AddScoped<IAuditLogRepository,   AuditLogRepository>();
 
 // ─── Services ─────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService,       AuthService>();
@@ -29,10 +31,13 @@ builder.Services.AddScoped<IUserService,       UserService>();
 builder.Services.AddScoped<ISkillService,      SkillService>();
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IRoleGradeService,  RoleGradeService>();
-builder.Services.AddScoped<IRoleService,        RoleService>();
+builder.Services.AddScoped<IRoleService,       RoleService>();
 builder.Services.AddScoped<ICompanyService,    CompanyService>();
 builder.Services.AddScoped<ITeamService,       TeamService>();
+builder.Services.AddScoped<IAuditService,      ApiAuditService>();
 builder.Services.AddSingleton<IJwtService,     JwtService>();
+
+builder.Services.AddHttpContextAccessor();
 
 // ─── JWT ──────────────────────────────────────────────────────────────────────
 var jwtSecret = builder.Configuration["Jwt:Secret"]

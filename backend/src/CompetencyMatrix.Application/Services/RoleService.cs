@@ -10,17 +10,20 @@ public class RoleService : IRoleService
     private readonly IUserRepository      _userRepo;
     private readonly ICompanyRepository   _companyRepo;
     private readonly ISkillRepository     _skillRepo;
+    private readonly IAuditService        _audit;
 
     public RoleService(
         IRoleGradeRepository roleRepo,
         IUserRepository userRepo,
         ICompanyRepository companyRepo,
-        ISkillRepository skillRepo)
+        ISkillRepository skillRepo,
+        IAuditService audit)
     {
         _roleRepo    = roleRepo;
         _userRepo    = userRepo;
         _companyRepo = companyRepo;
         _skillRepo   = skillRepo;
+        _audit       = audit;
     }
 
     public async Task<IEnumerable<RoleDetailResponse>> GetAllAsync(Guid? currentUserId, int? companyId = null)
@@ -98,7 +101,23 @@ public class RoleService : IRoleService
             Description = desc,
             CompanyId   = companyId
         };
-        return await _roleRepo.CreateRoleAsync(role);
+        var id = await _roleRepo.CreateRoleAsync(role);
+
+        await SafeAuditAsync(
+            "Role",
+            id.ToString(),
+            "CREATE",
+            before: null,
+            after: new
+            {
+                Id          = id,
+                role.Name,
+                role.Description,
+                role.CompanyId,
+            },
+            companyId: role.CompanyId);
+
+        return id;
     }
 
     public async Task UpdateAsync(int id, UpdateRoleRequest request, Guid? currentUserId = null)
@@ -110,9 +129,32 @@ public class RoleService : IRoleService
         var desc = string.IsNullOrWhiteSpace(request.Descricao) ? null : request.Descricao.Trim();
         if (desc?.Length > RoleDescriptionMaxLength)
             throw new InvalidOperationException($"A descrição do cargo não pode ter mais de {RoleDescriptionMaxLength} caracteres.");
+
+        var before = new
+        {
+            existing.Id,
+            existing.Name,
+            existing.Description,
+            existing.CompanyId,
+        };
+
         existing.Name        = request.Nome.Trim();
         existing.Description = desc;
         await _roleRepo.UpdateRoleAsync(existing);
+
+        await SafeAuditAsync(
+            "Role",
+            id.ToString(),
+            "UPDATE",
+            before,
+            new
+            {
+                existing.Id,
+                existing.Name,
+                existing.Description,
+                existing.CompanyId,
+            },
+            companyId: existing.CompanyId);
     }
 
     public async Task DeleteAsync(int id, Guid? currentUserId = null)
@@ -134,6 +176,20 @@ public class RoleService : IRoleService
             throw new InvalidOperationException("Não é possível excluir o cargo: existem descrições de competência vinculadas. Remova as descrições antes de excluir o cargo.");
 
         await _roleRepo.DeleteRoleAsync(id);
+
+        await SafeAuditAsync(
+            "Role",
+            id.ToString(),
+            "DELETE",
+            before: new
+            {
+                existing.Id,
+                existing.Name,
+                existing.Description,
+                existing.CompanyId,
+            },
+            after: null,
+            companyId: existing.CompanyId);
     }
 
     private async Task<int?> ResolveScopeCompanyIdAsync(Guid? currentUserId, int? companyId)
@@ -175,4 +231,22 @@ public class RoleService : IRoleService
 
     private static RoleDetailResponse MapDetail(Role r, string? companyName) =>
         new(r.Id, r.Name, r.Description, r.CompanyId, companyName);
+
+    private Task SafeAuditAsync(
+        string  entityType,
+        string  entityId,
+        string  operation,
+        object? before,
+        object? after,
+        int?    companyId)
+    {
+        try
+        {
+            return _audit.LogAsync(entityType, entityId, operation, before, after, companyId);
+        }
+        catch
+        {
+            return Task.CompletedTask;
+        }
+    }
 }

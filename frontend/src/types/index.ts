@@ -73,6 +73,34 @@ export interface AdminDashboardStats {
   totalManagers: number
 }
 
+// ─── Audit ─────────────────────────────────────────────────────────────────────
+
+export interface AuditLogResponse {
+  id: number
+  createdAt: string
+  userEmail: string | null
+  ipAddress: string | null
+  entityType: string
+  entityId: string
+  operation: string
+  companyId: number | null
+  teamId: number | null
+}
+
+export interface AuditLogDetailResponse {
+  id: number
+  createdAt: string
+  userId: string | null
+  userEmail: string | null
+  ipAddress: string | null
+  entityType: string
+  entityId: string
+  operation: string
+  companyId: number | null
+  teamId: number | null
+  payload: string | null
+}
+
 export interface SkillDescriptionDto {
   id: number
   skillId: number

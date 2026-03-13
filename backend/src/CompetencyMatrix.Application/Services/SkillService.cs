@@ -9,12 +9,18 @@ public class SkillService : ISkillService
     private readonly ISkillRepository      _repo;
     private readonly IAssessmentRepository _assessmentRepo;
     private readonly ITeamRepository       _teamRepo;
+    private readonly IAuditService         _audit;
 
-    public SkillService(ISkillRepository repo, IAssessmentRepository assessmentRepo, ITeamRepository teamRepo)
+    public SkillService(
+        ISkillRepository      repo,
+        IAssessmentRepository assessmentRepo,
+        ITeamRepository       teamRepo,
+        IAuditService         audit)
     {
         _repo           = repo;
         _assessmentRepo = assessmentRepo;
         _teamRepo       = teamRepo;
+        _audit          = audit;
     }
 
     public async Task<SkillResponse?> GetByIdAsync(int id)
@@ -55,7 +61,23 @@ public class SkillService : ISkillService
             Category  = request.Category,
             CompanyId = request.CompanyId ?? 0
         };
-        return await _repo.CreateAsync(skill);
+        var id = await _repo.CreateAsync(skill);
+
+        await SafeAuditAsync(
+            "Skill",
+            id.ToString(),
+            "CREATE",
+            before: null,
+            after: new
+            {
+                Id        = id,
+                skill.Name,
+                skill.Category,
+                skill.CompanyId,
+            },
+            companyId: skill.CompanyId);
+
+        return id;
     }
 
     public async Task UpdateAsync(int id, UpdateSkillRequest request)
@@ -63,10 +85,32 @@ public class SkillService : ISkillService
         var skill = await _repo.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Skill {id} não encontrada.");
 
+        var before = new
+        {
+            skill.Id,
+            skill.Name,
+            skill.Category,
+            skill.CompanyId,
+        };
+
         skill.Name     = request.Name;
         skill.Category = request.Category;
 
         await _repo.UpdateAsync(skill);
+
+        await SafeAuditAsync(
+            "Skill",
+            id.ToString(),
+            "UPDATE",
+            before,
+            new
+            {
+                skill.Id,
+                skill.Name,
+                skill.Category,
+                skill.CompanyId,
+            },
+            companyId: skill.CompanyId);
     }
 
     public async Task DeleteAsync(int id)
@@ -91,6 +135,20 @@ public class SkillService : ISkillService
             throw new InvalidOperationException("Não é possível excluir a competência: ela está vinculada a um ou mais times. Remova a competência dos times antes de excluir.");
 
         await _repo.DeleteAsync(id);
+
+        await SafeAuditAsync(
+            "Skill",
+            id.ToString(),
+            "DELETE",
+            before: new
+            {
+                skill.Id,
+                skill.Name,
+                skill.Category,
+                skill.CompanyId,
+            },
+            after: null,
+            companyId: skill.CompanyId);
     }
 
     public async Task UpsertExpectationAsync(UpsertExpectationRequest request)
@@ -104,6 +162,14 @@ public class SkillService : ISkillService
             IsRequired    = request.IsRequired
         };
         await _repo.UpsertExpectationAsync(expectation);
+
+        await SafeAuditAsync(
+            "SkillExpectation",
+            $"{request.SkillId}:{request.RoleId}:{request.GradeId}",
+            "UPSERT",
+            before: null,
+            after: request,
+            companyId: null);
     }
 
     public async Task<IEnumerable<SkillExpectationDto>> GetExpectationsBySkillAsync(int skillId)
@@ -115,6 +181,14 @@ public class SkillService : ISkillService
     public async Task DeleteExpectationAsync(int skillId, int roleId, int gradeId)
     {
         await _repo.DeleteExpectationAsync(skillId, roleId, gradeId);
+
+        await SafeAuditAsync(
+            "SkillExpectation",
+            $"{skillId}:{roleId}:{gradeId}",
+            "DELETE",
+            before: new { skillId, roleId, gradeId },
+            after: null,
+            companyId: null);
     }
 
     public async Task<IEnumerable<SkillDescriptionDto>> GetDescriptionsAsync(int skillId)
@@ -137,8 +211,34 @@ public class SkillService : ISkillService
             Description = request.Description
         };
         await _repo.UpsertDescriptionAsync(desc);
+
+        await SafeAuditAsync(
+            "SkillDescription",
+            $"{request.SkillId}:{request.RoleId}:{request.Level}",
+            "UPSERT",
+            before: null,
+            after: request,
+            companyId: null);
     }
 
     private static SkillResponse Map(Skill s) =>
         new(s.Id, s.Name, s.Category, s.CompanyId);
+
+    private Task SafeAuditAsync(
+        string  entityType,
+        string  entityId,
+        string  operation,
+        object? before,
+        object? after,
+        int?    companyId)
+    {
+        try
+        {
+            return _audit.LogAsync(entityType, entityId, operation, before, after, companyId);
+        }
+        catch
+        {
+            return Task.CompletedTask;
+        }
+    }
 }

@@ -83,3 +83,15 @@ public interface ITeamService
     Task                                 UpdateAsync(int id, UpdateTeamRequest request);
     Task                                 DeleteAsync(int id);
 }
+
+public interface IAuditService
+{
+    Task LogAsync(
+        string  entityType,
+        string  entityId,
+        string  operation,
+        object? before,
+        object? after,
+        int?    companyId = null,
+        int?    teamId    = null);
+}

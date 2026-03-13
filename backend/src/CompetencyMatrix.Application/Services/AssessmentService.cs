@@ -9,6 +9,7 @@ public class AssessmentService : IAssessmentService
     private readonly IAssessmentRepository _assessments;
     private readonly IUserRepository       _users;
     private readonly ITeamRepository       _teams;
+    private readonly IAuditService         _audit;
 
     private static readonly Dictionary<string, int> LevelOrder = new()
     {
@@ -21,11 +22,13 @@ public class AssessmentService : IAssessmentService
     public AssessmentService(
         IAssessmentRepository assessments,
         IUserRepository       users,
-        ITeamRepository       teams)
+        ITeamRepository       teams,
+        IAuditService         audit)
     {
         _assessments = assessments;
         _users       = users;
         _teams       = teams;
+        _audit       = audit;
     }
 
     public async Task<IEnumerable<AssessmentResponse>> GetByUserAsync(Guid userId)
@@ -53,6 +56,13 @@ public class AssessmentService : IAssessmentService
 
     public async Task UpsertAsync(UpsertAssessmentRequest request)
     {
+        var existingList = await _assessments.GetByUserAsync(request.UserId);
+        var existing = existingList.FirstOrDefault(a => a.SkillId == request.SkillId);
+
+        object? before = existing is null
+            ? null
+            : new { existing.UserId, existing.SkillId, existing.CurrentLevel, existing.LastUpdated };
+
         var assessment = new SkillAssessment
         {
             UserId       = request.UserId,
@@ -61,6 +71,35 @@ public class AssessmentService : IAssessmentService
             LastUpdated  = DateTime.UtcNow
         };
         await _assessments.UpsertAsync(assessment);
+
+        var after = new { request.UserId, request.SkillId, request.CurrentLevel, assessment.LastUpdated };
+        var user = await _users.GetByIdAsync(request.UserId);
+        var operation = existing is null ? "CREATE" : "UPDATE";
+        await SafeAuditAsync(
+            "Assessment",
+            $"{request.UserId}:{request.SkillId}",
+            operation,
+            before,
+            after,
+            user?.CompanyId);
+    }
+
+    private Task SafeAuditAsync(
+        string  entityType,
+        string  entityId,
+        string  operation,
+        object? before,
+        object? after,
+        int?    companyId = null)
+    {
+        try
+        {
+            return _audit.LogAsync(entityType, entityId, operation, before, after, companyId);
+        }
+        catch
+        {
+            return Task.CompletedTask;
+        }
     }
 
     public async Task<IEnumerable<ComparisonRow>> CompareAsync(Guid userAId, Guid userBId, Guid? userCId = null)

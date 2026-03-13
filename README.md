@@ -57,6 +57,8 @@ dotnet run --project src/CompetencyMatrix.API
 
 Configure a connection string em `src/CompetencyMatrix.API/appsettings.json`.
 
+**Importante:** após qualquer alteração no código da API, reinicie o processo (Ctrl+C e execute novamente) para carregar as mudanças.
+
 ### Frontend
 
 ```bash

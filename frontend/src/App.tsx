@@ -15,6 +15,7 @@ import RolesPage from './pages/RolesPage'
 import RoleFormPage from './pages/RoleFormPage'
 import TeamsPage from './pages/TeamsPage'
 import TeamFormPage from './pages/TeamFormPage'
+import AuditPage from './pages/AuditPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -64,6 +65,7 @@ export default function App() {
       <Route path='/teams' element={<ManagerRoute><TeamsPage /></ManagerRoute>} />
       <Route path='/teams/new' element={<ManagerAdminRoute><TeamFormPage /></ManagerAdminRoute>} />
       <Route path='/teams/:id/edit' element={<ManagerRoute><TeamFormPage /></ManagerRoute>} />
+      <Route path='/audit' element={<ManagerRoute><AuditPage /></ManagerRoute>} />
       <Route path='*' element={<Navigate to='/' replace />} />
     </Routes>
   )

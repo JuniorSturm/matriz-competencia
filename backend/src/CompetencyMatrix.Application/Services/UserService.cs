@@ -11,14 +11,21 @@ public class UserService : IUserService
     private readonly IUserRepository       _repo;
     private readonly ITeamRepository       _teamRepo;
     private readonly ICompanyRepository    _companyRepo;
-    private readonly IAssessmentRepository  _assessmentRepo;
+    private readonly IAssessmentRepository _assessmentRepo;
+    private readonly IAuditService         _audit;
 
-    public UserService(IUserRepository repo, ITeamRepository teamRepo, ICompanyRepository companyRepo, IAssessmentRepository assessmentRepo)
+    public UserService(
+        IUserRepository       repo,
+        ITeamRepository       teamRepo,
+        ICompanyRepository    companyRepo,
+        IAssessmentRepository assessmentRepo,
+        IAuditService         audit)
     {
-        _repo          = repo;
-        _teamRepo      = teamRepo;
-        _companyRepo   = companyRepo;
+        _repo           = repo;
+        _teamRepo       = teamRepo;
+        _companyRepo    = companyRepo;
         _assessmentRepo = assessmentRepo;
+        _audit          = audit;
     }
 
     public async Task<UserResponse?> GetByIdAsync(Guid id)
@@ -150,6 +157,23 @@ public class UserService : IUserService
             await _companyRepo.AddUserToCompanyAsync(user.CompanyId.Value, user.Id);
         }
 
+        await SafeAuditAsync(
+            "User",
+            user.Id.ToString(),
+            "CREATE",
+            before: null,
+            after: new
+            {
+                user.Id,
+                user.Name,
+                user.Email,
+                user.IsManager,
+                user.IsAdmin,
+                user.IsCoordinator,
+                user.CompanyId,
+            },
+            companyId: user.CompanyId);
+
         return newId;
     }
 
@@ -157,6 +181,17 @@ public class UserService : IUserService
     {
         var user = await _repo.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Usuário {id} não encontrado.");
+
+        var before = new
+        {
+            user.Id,
+            user.Name,
+            user.Email,
+            user.IsManager,
+            user.IsAdmin,
+            user.IsCoordinator,
+            user.CompanyId,
+        };
 
         User? caller = currentUserId.HasValue
             ? await _repo.GetByIdAsync(currentUserId.Value)
@@ -199,6 +234,23 @@ public class UserService : IUserService
         {
             await _companyRepo.AddUserToCompanyAsync(user.CompanyId.Value, user.Id);
         }
+
+        await SafeAuditAsync(
+            "User",
+            user.Id.ToString(),
+            "UPDATE",
+            before,
+            new
+            {
+                user.Id,
+                user.Name,
+                user.Email,
+                user.IsManager,
+                user.IsAdmin,
+                user.IsCoordinator,
+                user.CompanyId,
+            },
+            companyId: user.CompanyId);
     }
 
     public async Task ResetPasswordAsync(Guid id, string newPassword)
@@ -208,10 +260,21 @@ public class UserService : IUserService
 
         var hashed = BC.HashPassword(newPassword);
         await _repo.UpdatePasswordAsync(id, hashed);
+
+        await SafeAuditAsync(
+            "User",
+            id.ToString(),
+            "RESET_PASSWORD",
+            before: null,
+            after: new { Changed = true },
+            companyId: user.CompanyId);
     }
 
     public async Task DeleteAsync(Guid id)
     {
+        var user = await _repo.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Usuário {id} não encontrado.");
+
         var teamCount = await _teamRepo.CountTeamsForUserAsync(id);
         if (teamCount > 0)
             throw new InvalidOperationException("Não é possível excluir o colaborador: ele está vinculado a um ou mais times. Remova-o dos times antes de excluir.");
@@ -221,6 +284,23 @@ public class UserService : IUserService
             throw new InvalidOperationException("Não é possível excluir o colaborador: existem avaliações de competência vinculadas. Remova as avaliações antes de excluir.");
 
         await _repo.DeleteAsync(id);
+
+        await SafeAuditAsync(
+            "User",
+            id.ToString(),
+            "DELETE",
+            before: new
+            {
+                user.Id,
+                user.Name,
+                user.Email,
+                user.IsManager,
+                user.IsAdmin,
+                user.IsCoordinator,
+                user.CompanyId,
+            },
+            after: null,
+            companyId: user.CompanyId);
     }
 
     public async Task<bool> CanSeeUserAsync(Guid currentUserId, Guid targetUserId)
@@ -251,4 +331,22 @@ public class UserService : IUserService
         u.Company?.Name,
         u.CreatedAt
     );
+
+    private Task SafeAuditAsync(
+        string  entityType,
+        string  entityId,
+        string  operation,
+        object? before,
+        object? after,
+        int?    companyId)
+    {
+        try
+        {
+            return _audit.LogAsync(entityType, entityId, operation, before, after, companyId);
+        }
+        catch
+        {
+            return Task.CompletedTask;
+        }
+    }
 }
