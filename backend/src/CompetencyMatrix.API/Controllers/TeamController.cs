@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CompetencyMatrix.Application;
 using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -29,9 +30,23 @@ public class TeamController : ControllerBase
     public async Task<IActionResult> GetByCompany(int companyId) =>
         Ok(await _service.GetAllByCompanyAsync(companyId));
 
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = PaginationDefaults.DefaultPageSize,
+        [FromQuery] int? companyId = null,
+        [FromQuery] string? name = null)
+    {
+        if (page <= 0 || pageSize <= 0)
+            return BadRequest(new { message = "Parâmetros de paginação inválidos." });
+        pageSize = Math.Min(pageSize, PaginationDefaults.MaxPageSize);
+        var result = await _service.GetPagedAsync(GetCurrentUserId(User), page, pageSize, companyId, name);
+        return Ok(result);
+    }
+
     [HttpGet("assigned-member-ids")]
-    public async Task<IActionResult> GetAssignedMemberIds([FromQuery] int? excludeTeamId = null) =>
-        Ok(await _service.GetAssignedMemberIdsAsync(excludeTeamId));
+    public async Task<IActionResult> GetAssignedMemberIds([FromQuery] int? excludeTeamId = null, [FromQuery] int? companyId = null) =>
+        Ok(await _service.GetAssignedMemberIdsAsync(excludeTeamId, companyId));
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)

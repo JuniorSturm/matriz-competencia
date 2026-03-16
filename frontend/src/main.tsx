@@ -11,7 +11,13 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      // staleTime: 0 faz os dados ficarem obsoletos ao sair da tela; ao reentrar, a requisição é disparada de novo
+      staleTime: 0,
+    },
+  },
 })
 
 createRoot(document.getElementById('root')!).render(

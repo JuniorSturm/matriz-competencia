@@ -28,6 +28,21 @@ public record CompanyResponse(
     List<CompanyUserResponse> Users
 );
 
+/// <summary>Mínimo para dropdown/filtro (evita GetAll completo).</summary>
+public record CompanyOptionResponse(int Id, string Name, bool IsActive);
+
+public record CompanyListItemResponse(
+    int      Id,
+    string   Name,
+    string?  Document,
+    string?  Email,
+    string?  Phone,
+    bool     IsActive,
+    DateTime CreatedAt,
+    int      CollaboratorCount,
+    int     ManagerCount
+);
+
 public record CompanyUserResponse(
     Guid    Id,
     string  Name,

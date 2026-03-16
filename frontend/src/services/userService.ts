@@ -6,13 +6,34 @@ export const userService = {
     const res = await api.get<UserResponse[]>('/users')
     return res.data
   },
-  getPaged: async (page: number, pageSize: number, name?: string, onlyCollaborators: boolean = true): Promise<PagedResult<UserResponse>> => {
+  getByCompany: async (companyId: number): Promise<UserResponse[]> => {
+    const res = await api.get<UserResponse[]>(`/users/company/${companyId}`)
+    return res.data
+  },
+  getPaged: async (
+    page: number,
+    pageSize: number,
+    name?: string,
+    onlyCollaborators: boolean = true,
+    companyId?: number | null,
+    availableForCompanyId?: number | null,
+    availableForTeamCompanyId?: number | null,
+    excludeTeamId?: number | null,
+    onlyManagers?: boolean | null,
+    onlyCoordinators?: boolean | null,
+  ): Promise<PagedResult<UserResponse>> => {
     const res = await api.get<PagedResult<UserResponse>>('/users/paged', {
       params: {
         page,
         pageSize,
         name: name || undefined,
         onlyCollaborators,
+        companyId: companyId ?? undefined,
+        availableForCompanyId: availableForCompanyId ?? undefined,
+        availableForTeamCompanyId: availableForTeamCompanyId ?? undefined,
+        excludeTeamId: excludeTeamId ?? undefined,
+        onlyManagers: onlyManagers ?? undefined,
+        onlyCoordinators: onlyCoordinators ?? undefined,
       },
     })
     return res.data

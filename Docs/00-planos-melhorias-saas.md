@@ -12,8 +12,9 @@ Lista dos documentos de plano para distribuição do sistema como SaaS. Cada pla
 | 12 | [12-ci-cd.md](12-ci-cd.md) | Pipeline CI (build, testes, lint), CD (build e push de imagens) |
 | 13 | [13-onboarding-self-service.md](13-onboarding-self-service.md) | Signup público (empresa + primeiro usuário), convites por e-mail |
 | 14 | [14-modelo-negocio-billing.md](14-modelo-negocio-billing.md) | Planos e limites, aplicação na API, billing/assinatura (opcional) |
+| 15 | [15-idp-migracao-futura.md](15-idp-migracao-futura.md) | Migração futura para IdP (abstração auth, escolha IdP, validação token, fluxo frontend, mapeamento usuários) |
 
-**Ordem sugerida de execução (visão geral):** 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14. Dentro de cada documento, a ordem dos itens está descrita no próprio arquivo.
+**Ordem sugerida de execução (visão geral):** 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14. O plano 15 (IdP) é executado quando for decidida a migração para provedor de identidade externo (após 14 ou em momento oportuno). Dentro de cada documento, a ordem dos itens está descrita no próprio arquivo.
 
 **Como solicitar a um agente:**  
 "Execute o Item 1 do plano em Docs/08-limites-consistencia.md"  

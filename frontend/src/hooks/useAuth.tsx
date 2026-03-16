@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import type { LoginResponse } from '../types'
+import { api } from '../services/api'
 
 interface AuthContextValue {
   user: LoginResponse | null
@@ -18,11 +19,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (data: LoginResponse) => {
     localStorage.setItem('token', data.token)
     localStorage.setItem('user', JSON.stringify(data))
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken)
+    } else {
+      localStorage.removeItem('refreshToken')
+    }
     setUser(data)
   }
 
   const logout = () => {
+    const refreshToken = localStorage.getItem('refreshToken')
+    if (refreshToken) {
+      api.post('/auth/logout', { refreshToken }).catch(() => {})
+    }
     localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
     setUser(null)
   }

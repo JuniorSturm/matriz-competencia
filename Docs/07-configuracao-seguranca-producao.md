@@ -106,7 +106,7 @@ var jwtSecret = builder.Configuration["Jwt:Secret"]
     ?? throw new InvalidOperationException("Jwt:Secret not configured.");
 ```
 
-**Arquivo:** `backend/src/CompetencyMatrix.Infrastructure/Security/JwtService.cs`: lê `Jwt:Secret`, `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpiryMinutes` de `IConfiguration`.
+**Arquivo:** `backend/src/CompetencyMatrix.Infrastructure/Security/JwtService.cs`: lê `Jwt:Secret`, `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpiryMinutes` de `IConfiguration`. O fluxo de refresh token (Doc 10) usa ainda `Jwt:RefreshExpiryDays`; ver README e Docs/10-autenticacao-sessao.md.
 
 **Arquivo:** `docker-compose.yml`: define `Jwt__Secret`, `Jwt__Issuer`, etc., para o serviço `api`.
 

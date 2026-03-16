@@ -19,7 +19,7 @@ import PeopleIcon from '@mui/icons-material/People'
 import SearchIcon from '@mui/icons-material/Search'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { companyService } from '../services/companyService'
-import { userService } from '../services/userService'
+import { usePagedUsers } from '../hooks/useUsers'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import type { CreateCompanyRequest, UpdateCompanyRequest, UserResponse } from '../types'
@@ -70,10 +70,7 @@ export default function CompanyFormPage() {
     enabled: isEdit,
   })
 
-  const { data: allUsers = [] } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => userService.getAll(),
-  })
+  const [addedUserMap, setAddedUserMap] = useState<Record<string, UserResponse>>({})
 
   const [formData, setFormData] = useState<FormData>({ name: '', document: '', email: '', phone: '', isActive: true })
   const [synced, setSynced] = useState(false)
@@ -108,7 +105,10 @@ export default function CompanyFormPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: CreateCompanyRequest) => companyService.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['companies'] }),
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['companies'] })
+        queryClient.invalidateQueries({ queryKey: ['companies-paged'] })
+      },
     onError: (err: { response?: { data?: { message?: string } } }) => {
       setErrorMsg(err?.response?.data?.message ?? 'Erro ao criar empresa.')
     },
@@ -118,6 +118,7 @@ export default function CompanyFormPage() {
     mutationFn: (data: UpdateCompanyRequest) => companyService.update(companyId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] })
+      queryClient.invalidateQueries({ queryKey: ['companies-paged'] })
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
@@ -125,31 +126,33 @@ export default function CompanyFormPage() {
     },
   })
 
-  const allUserIds = new Set([...managerIds, ...collaboratorIds])
-
-  const availableManagers = useMemo(() => {
-    return allUsers.filter(u => u.isManager && !u.isAdmin && (u.companyId === null || (isEdit && u.companyId === companyId)) && !allUserIds.has(u.id))
-  }, [allUsers, allUserIds, isEdit, companyId])
-
-  const availableCollaborators = useMemo(() => {
-    return allUsers.filter(u => !u.isManager && !u.isAdmin && (u.companyId === null || (isEdit && u.companyId === companyId)) && !allUserIds.has(u.id))
-  }, [allUsers, allUserIds, isEdit, companyId])
-
-  const managers = allUsers.filter(u => managerIds.includes(u.id))
-  const collaborators = allUsers.filter(u => collaboratorIds.includes(u.id))
-
-  const flyoutAvailable = flyoutType === 'manager' ? availableManagers : availableCollaborators
-
-  const flyoutFiltered = useMemo(() => {
-    if (!flyoutSearch.trim()) return flyoutAvailable
-    const lower = flyoutSearch.toLowerCase()
-    return flyoutAvailable.filter(u => u.name.toLowerCase().includes(lower) || u.email.toLowerCase().includes(lower))
-  }, [flyoutAvailable, flyoutSearch])
-
-  const flyoutPaginated = useMemo(
-    () => flyoutFiltered.slice(flyoutPage * ROWS_PER_PAGE, flyoutPage * ROWS_PER_PAGE + ROWS_PER_PAGE),
-    [flyoutFiltered, flyoutPage],
+  const { data: flyoutPaged, isLoading: flyoutLoading } = usePagedUsers(
+    flyoutPage + 1,
+    ROWS_PER_PAGE,
+    flyoutSearch.trim() || undefined,
+    false,
+    undefined,
+    isEdit ? companyId : 0,
+    undefined,
+    undefined,
+    flyoutType === 'manager',
+    undefined,
+    flyoutOpen,
   )
+  const flyoutItems = flyoutPaged?.items ?? []
+  const flyoutTotal = flyoutPaged?.totalCount ?? 0
+  // Backend já retorna só usuários disponíveis para vincular (sem empresa), então exibimos a página tal qual.
+  const flyoutPaginated = flyoutItems
+
+  const managers = useMemo(() => {
+    const fromCompany = existingCompany?.users?.filter(u => u.isManager) ?? []
+    return managerIds.map(id => fromCompany.find(u => u.id === id) ?? addedUserMap[id]).filter(Boolean) as UserResponse[]
+  }, [managerIds, existingCompany?.users, addedUserMap])
+
+  const collaborators = useMemo(() => {
+    const fromCompany = existingCompany?.users?.filter(u => !u.isManager) ?? []
+    return collaboratorIds.map(id => fromCompany.find(u => u.id === id) ?? addedUserMap[id]).filter(Boolean) as UserResponse[]
+  }, [collaboratorIds, existingCompany?.users, addedUserMap])
 
   const openFlyout = (type: 'manager' | 'collaborator') => {
     setFlyoutType(type)
@@ -182,6 +185,8 @@ export default function CompanyFormPage() {
   const handleFlyoutConfirm = () => {
     const ids = Array.from(flyoutSelected)
     if (ids.length === 0) return
+    const toAdd = flyoutItems.filter(u => flyoutSelected.has(u.id))
+    setAddedUserMap(prev => ({ ...prev, ...Object.fromEntries(toAdd.map(u => [u.id, u])) }))
     if (flyoutType === 'manager') {
       setManagerIds(prev => [...prev, ...ids])
     } else {
@@ -430,7 +435,11 @@ export default function CompanyFormPage() {
           </Box>
 
           <Box sx={{ flex: 1, overflow: 'auto' }}>
-            {flyoutFiltered.length === 0 ? (
+            {flyoutLoading && !flyoutPaged ? (
+              <Box display='flex' justifyContent='center' py={6}>
+                <CircularProgress />
+              </Box>
+            ) : flyoutPaginated.length === 0 ? (
               <Typography variant='body2' color='text.secondary' sx={{ textAlign: 'center', py: 6 }}>
                 Nenhum usuário disponível.
               </Typography>
@@ -476,7 +485,7 @@ export default function CompanyFormPage() {
                 </Table>
                 <TablePagination
                   component='div'
-                  count={flyoutFiltered.length}
+                  count={flyoutTotal}
                   page={flyoutPage}
                   onPageChange={(_, p) => setFlyoutPage(p)}
                   rowsPerPage={ROWS_PER_PAGE}

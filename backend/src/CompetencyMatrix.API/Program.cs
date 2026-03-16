@@ -40,6 +40,7 @@ builder.Services
 
 // ─── Repositories ─────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository,       UserRepository>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ISkillRepository,      SkillRepository>();
 builder.Services.AddScoped<IAssessmentRepository, AssessmentRepository>();
 builder.Services.AddScoped<IRoleGradeRepository,  RoleGradeRepository>();
@@ -100,7 +101,17 @@ builder.Services.AddRateLimiter(options =>
         if (path.StartsWith("/auth/login", StringComparison.OrdinalIgnoreCase))
             return RateLimitPartition.GetNoLimiter("login");
 
-        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        if (path.StartsWith("/auth/refresh", StringComparison.OrdinalIgnoreCase))
+            return RateLimitPartition.GetNoLimiter("refresh");
+
+        if (path.StartsWith("/auth/logout", StringComparison.OrdinalIgnoreCase))
+            return RateLimitPartition.GetNoLimiter("logout");
+
+        // Atrás de proxy (ex.: nginx no Docker), usar X-Forwarded-For para limitar por IP real
+        var forwarded = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        var ip = !string.IsNullOrEmpty(forwarded)
+            ? forwarded.Split(',').FirstOrDefault()?.Trim() ?? "unknown"
+            : (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
 
         return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
         {

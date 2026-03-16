@@ -27,20 +27,31 @@ public class UserController : ControllerBase
     public async Task<IActionResult> GetAll() =>
         Ok(await _service.GetAllAsync(GetCurrentUserId(User)));
 
+    [HttpGet("company/{companyId:int}")]
+    [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
+    public async Task<IActionResult> GetByCompany(int companyId) =>
+        Ok(await _service.GetAllByCompanyAsync(companyId));
+
     [HttpGet("paged")]
     [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
     public async Task<IActionResult> GetPaged(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PaginationDefaults.DefaultPageSize,
         [FromQuery] string? name = null,
-        [FromQuery] bool onlyCollaborators = true)
+        [FromQuery] bool onlyCollaborators = true,
+        [FromQuery] int? companyId = null,
+        [FromQuery] int? availableForCompanyId = null,
+        [FromQuery] int? availableForTeamCompanyId = null,
+        [FromQuery] int? excludeTeamId = null,
+        [FromQuery] bool? onlyManagers = null,
+        [FromQuery] bool? onlyCoordinators = null)
     {
         if (page <= 0 || pageSize <= 0)
             return BadRequest(new { message = "Parâmetros de paginação inválidos." });
 
         pageSize = Math.Min(pageSize, PaginationDefaults.MaxPageSize);
 
-        var result = await _service.GetPagedAsync(GetCurrentUserId(User), page, pageSize, name, onlyCollaborators);
+        var result = await _service.GetPagedAsync(GetCurrentUserId(User), page, pageSize, name, onlyCollaborators, companyId, availableForCompanyId, availableForTeamCompanyId, excludeTeamId, onlyManagers, onlyCoordinators);
         return Ok(result);
     }
 

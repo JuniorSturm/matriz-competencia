@@ -4,6 +4,7 @@ import type {
   TeamListItemResponse,
   CreateTeamRequest,
   UpdateTeamRequest,
+  PagedResult,
 } from '../types'
 
 export const teamService = {
@@ -11,9 +12,22 @@ export const teamService = {
     const res = await api.get<TeamListItemResponse[]>('/teams')
     return res.data
   },
-  getAssignedMemberIds: async (excludeTeamId?: number): Promise<string[]> => {
-    const params = excludeTeamId ? { excludeTeamId } : {}
-    const res = await api.get<string[]>('/teams/assigned-member-ids', { params })
+  getPaged: async (
+    page: number,
+    pageSize: number,
+    companyId?: number | null,
+    name?: string | null,
+  ): Promise<PagedResult<TeamListItemResponse>> => {
+    const res = await api.get<PagedResult<TeamListItemResponse>>('/teams/paged', {
+      params: { page, pageSize, companyId: companyId ?? undefined, name: name ?? undefined },
+    })
+    return res.data
+  },
+  getAssignedMemberIds: async (excludeTeamId?: number, companyId?: number | null): Promise<string[]> => {
+    const params: Record<string, number> = {}
+    if (excludeTeamId) params.excludeTeamId = excludeTeamId
+    if (companyId != null && companyId > 0) params.companyId = companyId
+    const res = await api.get<string[]>('/teams/assigned-member-ids', { params: Object.keys(params).length ? params : undefined })
     return res.data
   },
   getByCompany: async (companyId: number): Promise<TeamListItemResponse[]> => {

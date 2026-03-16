@@ -3,18 +3,18 @@ import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Alert, CircularProgress,
-  InputAdornment, Avatar, TablePagination, FormControl, InputLabel, Select, MenuItem,
-  Snackbar,
+  InputAdornment, Avatar, TablePagination, Snackbar,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
+import BusinessIcon from '@mui/icons-material/Business'
 import WorkIcon from '@mui/icons-material/Work'
 import { useAuth } from '../hooks/useAuth'
 import { useRolesPagedList } from '../hooks/useRoleGrade'
 import { useDeleteRole } from '../hooks/useRoles'
-import { useCompanies } from '../hooks/useCompanies'
-import type { RoleDetailResponse } from '../types'
+import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
+import type { RoleDetailResponse, CompanyOptionResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
@@ -26,6 +26,8 @@ export default function RolesPage() {
   const { user } = useAuth()
   const isAdmin = user?.isAdmin ?? false
   const [companyFilter, setCompanyFilter] = useState<number | ''>('')
+  const [selectedCompany, setSelectedCompany] = useState<CompanyOptionResponse | null>(null)
+  const [companyDrawerOpen, setCompanyDrawerOpen] = useState(false)
   const [nameFilter, setNameFilter] = useState('')
   const [page, setPage] = useState(0)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -33,8 +35,13 @@ export default function RolesPage() {
 
   const companyIdForApi = isAdmin && companyFilter !== '' ? (companyFilter as number) : undefined
   const { data, isLoading, error } = useRolesPagedList(page + 1, rowsPerPage, companyIdForApi)
-  const { data: companies = [] } = useCompanies(isAdmin)
   const deleteMutation = useDeleteRole()
+
+  const handleCompanySelect = (company: CompanyOptionResponse | null) => {
+    setSelectedCompany(company)
+    setCompanyFilter(company?.id ?? '')
+    setPage(0)
+  }
 
   const roles = data?.items ?? []
   const totalCount = data?.totalCount ?? 0
@@ -85,19 +92,15 @@ export default function RolesPage() {
 
       <Box display='flex' flexWrap='wrap' gap={2} alignItems='center' sx={{ mb: 2, mt: 2 }}>
         {isAdmin && (
-          <FormControl size='small' sx={{ minWidth: 220 }}>
-            <InputLabel>Empresa</InputLabel>
-            <Select
-              value={companyFilter === '' ? '' : String(companyFilter)}
-              label='Empresa'
-              onChange={(e) => { const v = e.target.value; setCompanyFilter(v === '' ? '' : Number(v)); setPage(0) }}
-            >
-              <MenuItem value=''>Todas</MenuItem>
-              {companies.filter((c) => c.isActive).map((c) => (
-                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Button
+            variant='outlined'
+            size='small'
+            startIcon={<BusinessIcon />}
+            onClick={() => setCompanyDrawerOpen(true)}
+            sx={{ minWidth: 220, justifyContent: 'flex-start' }}
+          >
+            {selectedCompany ? selectedCompany.name : 'Todas (filtrar por empresa)'}
+          </Button>
         )}
         <TextField
           placeholder='Buscar por nome...'
@@ -182,6 +185,14 @@ export default function RolesPage() {
       <Snackbar open={!!deleteError} autoHideDuration={8000} onClose={() => setDeleteError(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity='error' variant='filled' onClose={() => setDeleteError(null)}>{deleteError}</Alert>
       </Snackbar>
+      {isAdmin && (
+        <CompanyPickerDrawer
+          open={companyDrawerOpen}
+          onClose={() => setCompanyDrawerOpen(false)}
+          onSelect={handleCompanySelect}
+          title='Filtrar por empresa'
+        />
+      )}
     </Box>
   )
 }

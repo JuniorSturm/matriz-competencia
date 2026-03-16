@@ -6,6 +6,8 @@ namespace CompetencyMatrix.Application.Services;
 
 public class TeamService : ITeamService
 {
+    private const int DefaultPageSize = 50;
+    private const int MaxPageSize = 100;
     private readonly ITeamRepository    _teamRepo;
     private readonly IUserRepository    _userRepo;
     private readonly ICompanyRepository _companyRepo;
@@ -95,6 +97,55 @@ public class TeamService : ITeamService
             ));
         }
         return list;
+    }
+
+    public async Task<PagedResult<TeamListItemResponse>> GetPagedAsync(Guid? currentUserId, int page, int pageSize, int? companyId, string? name)
+    {
+        if (page <= 0) page = 1;
+        if (pageSize <= 0) pageSize = DefaultPageSize;
+        pageSize = Math.Min(pageSize, MaxPageSize);
+
+        int? filterCompanyId = companyId;
+        IEnumerable<int>? teamIdsFilter = null;
+
+        if (currentUserId.HasValue)
+        {
+            var currentUser = await _userRepo.GetByIdAsync(currentUserId.Value);
+            if (currentUser is not null && !currentUser.IsAdmin)
+            {
+                if (currentUser.IsCoordinator && !currentUser.IsManager)
+                {
+                    var myTeamIds = (await _teamRepo.GetTeamIdsForUserAsync(currentUserId.Value)).ToList();
+                    if (myTeamIds.Count == 0 || !currentUser.CompanyId.HasValue)
+                        return new PagedResult<TeamListItemResponse>(Enumerable.Empty<TeamListItemResponse>(), 0);
+                    filterCompanyId = currentUser.CompanyId;
+                    teamIdsFilter = myTeamIds;
+                }
+                else if (currentUser.CompanyId.HasValue)
+                {
+                    filterCompanyId = currentUser.CompanyId;
+                }
+            }
+        }
+
+        var (teams, total) = await _teamRepo.GetPagedAsync(page, pageSize, filterCompanyId, name?.Trim(), teamIdsFilter);
+        var list = new List<TeamListItemResponse>();
+        foreach (var t in teams)
+        {
+            var members = (await _teamRepo.GetMemberDetailsAsync(t.Id)).ToList();
+            var leader = members.FirstOrDefault(m => m.IsLeader);
+            list.Add(new TeamListItemResponse(
+                t.Id,
+                t.CompanyId,
+                t.Company?.Name,
+                t.Name,
+                t.Description,
+                members.Count(m => !m.IsLeader),
+                leader.UserName,
+                t.CreatedAt
+            ));
+        }
+        return new PagedResult<TeamListItemResponse>(list, total);
     }
 
     public async Task<int> CreateAsync(CreateTeamRequest request)
@@ -227,8 +278,8 @@ public class TeamService : ITeamService
             companyId: team.CompanyId);
     }
 
-    public Task<IEnumerable<Guid>> GetAssignedMemberIdsAsync(int? excludeTeamId = null) =>
-        _teamRepo.GetAssignedMemberIdsAsync(excludeTeamId);
+    public Task<IEnumerable<Guid>> GetAssignedMemberIdsAsync(int? excludeTeamId = null, int? companyId = null) =>
+        _teamRepo.GetAssignedMemberIdsAsync(excludeTeamId, companyId);
 
     private async Task ValidateMembersAsync(List<TeamMemberRequest> members, int? teamId, int companyId)
     {

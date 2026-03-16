@@ -8,6 +8,7 @@ public interface ITeamRepository
     Task<IEnumerable<(Guid UserId, string UserName, string UserEmail, bool IsLeader)>> GetMemberDetailsAsync(int teamId);
     Task<IEnumerable<Team>> GetAllAsync();
     Task<IEnumerable<Team>> GetAllByCompanyAsync(int companyId);
+    Task<(IEnumerable<Team> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, int? companyId, string? name, IEnumerable<int>? teamIds = null);
     Task<int> CreateAsync(Team team);
     Task UpdateAsync(Team team);
     Task DeleteAsync(int id);
@@ -15,7 +16,7 @@ public interface ITeamRepository
     Task<IEnumerable<int>> GetTeamIdsForUserAsync(Guid userId);
     Task<IEnumerable<Guid>> GetUserIdsInTeamsAsync(IEnumerable<int> teamIds);
     Task<int> CountTeamsForUserAsync(Guid userId);
-    Task<IEnumerable<Guid>> GetAssignedMemberIdsAsync(int? excludeTeamId = null);
+    Task<IEnumerable<Guid>> GetAssignedMemberIdsAsync(int? excludeTeamId = null, int? companyId = null);
     Task<IEnumerable<Guid>> GetAllTeamUserIdsAsync();
     Task<IEnumerable<int>> GetTeamCompetencyIdsAsync(int teamId);
     Task SetTeamCompetenciesAsync(int teamId, IEnumerable<int> skillIds);

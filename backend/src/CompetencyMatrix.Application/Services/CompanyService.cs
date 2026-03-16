@@ -35,10 +35,27 @@ public class CompanyService : ICompanyService
         return c is null ? null : Map(c);
     }
 
+    public async Task<PagedResult<CompanyOptionResponse>> GetFilterOptionsPagedAsync(int page, int pageSize, string? name)
+    {
+        if (pageSize <= 0) pageSize = 50;
+        pageSize = Math.Min(pageSize, 100);
+        var (items, total) = await _repo.GetFilterOptionsPagedAsync(page, pageSize, name?.Trim());
+        return new PagedResult<CompanyOptionResponse>(items, total);
+    }
+
     public async Task<IEnumerable<CompanyResponse>> GetAllAsync()
     {
         var list = await _repo.GetAllAsync();
         return list.Select(Map);
+    }
+
+    public async Task<PagedResult<CompanyListItemResponse>> GetPagedAsync(int page, int pageSize, string? name)
+    {
+        if (pageSize <= 0) pageSize = 50;
+        pageSize = Math.Min(pageSize, 100);
+        var (items, total) = await _repo.GetPagedAsync(page, pageSize, name?.Trim());
+        var list = items.Take(pageSize).ToList();
+        return new PagedResult<CompanyListItemResponse>(list, total);
     }
 
     public async Task<int> CreateAsync(CreateCompanyRequest request)

@@ -19,7 +19,7 @@ public class JwtService : IJwtService
         _secret        = config["Jwt:Secret"]   ?? throw new InvalidOperationException("Jwt:Secret not configured");
         _issuer        = config["Jwt:Issuer"]   ?? "CompetencyMatrix";
         _audience      = config["Jwt:Audience"] ?? "CompetencyMatrix";
-        _expiryMinutes = int.TryParse(config["Jwt:ExpiryMinutes"], out var exp) ? exp : 480;
+        _expiryMinutes = int.TryParse(config["Jwt:ExpiryMinutes"], out var exp) ? exp : 15;
     }
 
     public string GenerateToken(Guid userId, string email, bool isManager, bool isAdmin, bool isCoordinator)

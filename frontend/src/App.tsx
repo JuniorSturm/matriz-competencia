@@ -1,7 +1,10 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { setNavigate } from './navigation'
 import { useAuth } from './hooks/useAuth'
 import AppLayout from './components/AppLayout'
 import LoginPage from './pages/LoginPage'
+import ForbiddenPage from './pages/ForbiddenPage'
 import DashboardPage from './pages/DashboardPage'
 import UsersPage from './pages/UsersPage'
 import UserFormPage from './pages/UserFormPage'
@@ -43,10 +46,16 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <AppLayout>{children}</AppLayout>
 }
 
-export default function App() {
+function AppRoutes() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    setNavigate(navigate)
+  }, [navigate])
+
   return (
     <Routes>
       <Route path='/login' element={<LoginPage />} />
+      <Route path='/forbidden' element={<ForbiddenPage />} />
       <Route path='/' element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
       <Route path='/users' element={<ManagerRoute><UsersPage /></ManagerRoute>} />
       <Route path='/users/new' element={<ManagerRoute><UserFormPage /></ManagerRoute>} />
@@ -69,4 +78,8 @@ export default function App() {
       <Route path='*' element={<Navigate to='/' replace />} />
     </Routes>
   )
+}
+
+export default function App() {
+  return <AppRoutes />
 }

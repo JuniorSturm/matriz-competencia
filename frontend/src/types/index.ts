@@ -1,6 +1,18 @@
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export interface LoginRequest  { email: string; password: string }
-export interface LoginResponse { id: string; token: string; name: string; isManager: boolean; isAdmin: boolean; isCoordinator: boolean; companyId: number | null }
+export interface LoginResponse {
+  id: string
+  token: string
+  name: string
+  isManager: boolean
+  isAdmin: boolean
+  isCoordinator: boolean
+  companyId: number | null
+  refreshToken?: string
+  refreshExpiresIn?: number
+}
+export interface RefreshRequest { refreshToken: string }
+export interface RefreshResponse { accessToken: string; refreshToken?: string; refreshExpiresIn?: number }
 
 // ─── Roles (cargos) / Níveis ────────────────────────────────────────────────────
 export interface RoleOption { id: number; nome: string }
@@ -170,6 +182,13 @@ export const LEVEL_VALUES: Record<CompetencyLevel, number> = {
 }
 
 // ─── Companies ────────────────────────────────────────────────────────────────
+/** Mínimo para dropdown/filtro (evita GET /companies completo). */
+export interface CompanyOptionResponse {
+  id: number
+  name: string
+  isActive: boolean
+}
+
 export interface CompanyResponse {
   id: number
   name: string
@@ -186,6 +205,18 @@ export interface CompanyUserResponse {
   name: string
   email: string
   isManager: boolean
+}
+
+export interface CompanyListItemResponse {
+  id: number
+  name: string
+  document: string | null
+  email: string | null
+  phone: string | null
+  isActive: boolean
+  createdAt: string
+  collaboratorCount: number
+  managerCount: number
 }
 
 export interface CreateCompanyRequest {

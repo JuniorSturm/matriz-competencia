@@ -3,14 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box, Button, TextField, Typography, Paper, CircularProgress, Alert,
   Snackbar, Divider, IconButton, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, TablePagination, FormControl, InputLabel, Select,
-  MenuItem, Checkbox, Drawer, Tooltip, InputAdornment, Autocomplete,
+  TableHead, TableRow, TablePagination, Checkbox, Drawer, Tooltip, InputAdornment, Autocomplete,
   Tab, Tabs, Chip,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
 import CloseIcon from '@mui/icons-material/Close'
+import BusinessIcon from '@mui/icons-material/Business'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove'
 import GroupsIcon from '@mui/icons-material/Groups'
@@ -19,13 +19,13 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { teamService } from '../services/teamService'
-import { companyService } from '../services/companyService'
-import { userService } from '../services/userService'
 import { skillService } from '../services/skillService'
+import { usePagedUsers } from '../hooks/useUsers'
 import { useAuth } from '../hooks/useAuth'
+import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
-import type { CreateTeamRequest, UpdateTeamRequest, TeamMemberRequest } from '../types'
+import type { CreateTeamRequest, UpdateTeamRequest, TeamMemberRequest, CompanyOptionResponse } from '../types'
 
 const ROWS_PER_PAGE = 50
 
@@ -46,21 +46,8 @@ export default function TeamFormPage() {
     enabled: isEdit,
   })
 
-  const { data: companies = [] } = useQuery({
-    queryKey: ['companies'],
-    queryFn: companyService.getAll,
-    enabled: isAdmin,
-  })
-
-  const { data: allUsers = [] } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => userService.getAll(),
-  })
-
-  const { data: assignedMemberIds = [] } = useQuery({
-    queryKey: ['teams', 'assigned-member-ids', isEdit ? teamId : null],
-    queryFn: () => teamService.getAssignedMemberIds(isEdit ? teamId : undefined),
-  })
+  const [companyDrawerOpen, setCompanyDrawerOpen] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<CompanyOptionResponse | null>(null)
 
   const [companyId, setCompanyId] = useState<number>(0)
   const [name, setName] = useState('')
@@ -90,11 +77,35 @@ export default function TeamFormPage() {
 
   const resolvedCompanyId = companyId || (isEdit ? existingTeam?.companyId : 0) || 0
 
-  const { data: companySkills = [] } = useQuery({
-    queryKey: ['skills', 'company', resolvedCompanyId],
-    queryFn: () => skillService.getAll(undefined, resolvedCompanyId),
-    enabled: resolvedCompanyId > 0,
+  const { data: coordinatorsPaged } = usePagedUsers(1, 100, undefined, false, resolvedCompanyId, undefined, undefined, undefined, false, true, !!resolvedCompanyId)
+  const companyCoordinators = coordinatorsPaged?.items ?? []
+
+  const { data: flyoutPaged, isLoading: flyoutMembersLoading } = usePagedUsers(
+    flyoutPage + 1,
+    ROWS_PER_PAGE,
+    flyoutSearch.trim() || undefined,
+    true,
+    undefined,
+    undefined,
+    resolvedCompanyId > 0 ? resolvedCompanyId : undefined,
+    isEdit && teamId ? teamId : undefined,
+    false,
+    undefined,
+    flyoutOpen && resolvedCompanyId > 0,
+  )
+  const flyoutItems = flyoutPaged?.items ?? []
+  const flyoutTotalCount = flyoutPaged?.totalCount ?? 0
+
+  const { data: compFlyoutPaged, isLoading: compFlyoutLoading } = useQuery({
+    queryKey: ['skills-paged', compFlyoutPage + 1, ROWS_PER_PAGE, resolvedCompanyId],
+    queryFn: () => skillService.getPaged(compFlyoutPage + 1, ROWS_PER_PAGE, resolvedCompanyId > 0 ? resolvedCompanyId : undefined),
+    enabled: compFlyoutOpen && resolvedCompanyId > 0,
   })
+  const compFlyoutItems = compFlyoutPaged?.items ?? []
+  const compFlyoutTotalCount = compFlyoutPaged?.totalCount ?? 0
+
+  const [addedMemberMap, setAddedMemberMap] = useState<Record<string, { name: string; email: string }>>({})
+  const [selectedCompetencyMap, setSelectedCompetencyMap] = useState<Record<number, { name: string; category: string }>>({})
 
   useEffect(() => {
     if (isEdit && existingTeam && !synced) {
@@ -115,10 +126,19 @@ export default function TeamFormPage() {
     }
   }, [isEdit, isAdmin, managerCompanyId])
 
+  const handleCompanySelect = (company: CompanyOptionResponse | null) => {
+    setSelectedCompany(company)
+    setCompanyId(company?.id ?? 0)
+    setMembers([])
+    setCoordinatorId('')
+    setSelectedCompetencyIds(new Set())
+  }
+
   const createMutation = useMutation({
     mutationFn: (data: CreateTeamRequest) => teamService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams'] })
+      queryClient.invalidateQueries({ queryKey: ['teams-paged'] })
       queryClient.invalidateQueries({ queryKey: ['assessments'] })
       queryClient.invalidateQueries({ queryKey: ['comparison'] })
       navigate('/teams')
@@ -132,6 +152,7 @@ export default function TeamFormPage() {
     mutationFn: (data: UpdateTeamRequest) => teamService.update(teamId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams'] })
+      queryClient.invalidateQueries({ queryKey: ['teams-paged'] })
       queryClient.invalidateQueries({ queryKey: ['teams', teamId] })
       queryClient.invalidateQueries({ queryKey: ['assessments'] })
       queryClient.invalidateQueries({ queryKey: ['comparison'] })
@@ -143,29 +164,23 @@ export default function TeamFormPage() {
   })
 
   // ── Members helpers ──
-  const companyCoordinators = allUsers.filter(u => u.companyId === companyId && u.isCoordinator && !u.isAdmin)
-  const companyUsers = allUsers.filter((u) => u.companyId === companyId && !u.isAdmin && !u.isManager && !u.isCoordinator)
   const memberUserIds = new Set(members.map((m) => m.userId))
-  const assignedSet = new Set(assignedMemberIds)
-  const availableToAdd = companyUsers.filter((u) => !memberUserIds.has(u.id) && !assignedSet.has(u.id))
-
-  const flyoutFiltered = useMemo(() => {
-    if (!flyoutSearch.trim()) return availableToAdd
-    const lower = flyoutSearch.toLowerCase()
-    return availableToAdd.filter(u => u.name.toLowerCase().includes(lower) || u.email.toLowerCase().includes(lower))
-  }, [availableToAdd, flyoutSearch])
-
-  const flyoutPaginated = useMemo(
-    () => flyoutFiltered.slice(flyoutPage * ROWS_PER_PAGE, flyoutPage * ROWS_PER_PAGE + ROWS_PER_PAGE),
-    [flyoutFiltered, flyoutPage],
+  const flyoutFiltered = useMemo(
+    () => flyoutItems.filter(u => !memberUserIds.has(u.id)),
+    [flyoutItems, memberUserIds],
   )
+  const flyoutPaginated = flyoutFiltered
 
   const memberRows = useMemo(() => {
     return members.map(m => {
-      const u = allUsers.find(u => u.id === m.userId)
-      return { ...m, name: u?.name ?? m.userId, email: u?.email ?? '—' }
+      const fromExisting = existingTeam?.members?.find(ex => ex.userId === m.userId)
+      return {
+        userId: m.userId,
+        name: fromExisting?.userName ?? addedMemberMap[m.userId]?.name ?? m.userId,
+        email: fromExisting?.userEmail ?? addedMemberMap[m.userId]?.email ?? '—',
+      }
     })
-  }, [members, allUsers])
+  }, [members, existingTeam?.members, addedMemberMap])
 
   const paginatedMembers = useMemo(
     () => memberRows.slice(memberPage * ROWS_PER_PAGE, memberPage * ROWS_PER_PAGE + ROWS_PER_PAGE),
@@ -174,8 +189,12 @@ export default function TeamFormPage() {
 
   // ── Competency tab helpers ──
   const selectedCompetencyRows = useMemo(() => {
-    return companySkills.filter(s => selectedCompetencyIds.has(s.id))
-  }, [companySkills, selectedCompetencyIds])
+    return Array.from(selectedCompetencyIds).map(id => ({
+      id,
+      name: selectedCompetencyMap[id]?.name ?? `Competência #${id}`,
+      category: selectedCompetencyMap[id]?.category ?? '—',
+    }))
+  }, [selectedCompetencyIds, selectedCompetencyMap])
 
   const paginatedCompRows = useMemo(
     () => selectedCompetencyRows.slice(compPage * ROWS_PER_PAGE, compPage * ROWS_PER_PAGE + ROWS_PER_PAGE),
@@ -183,21 +202,14 @@ export default function TeamFormPage() {
   )
 
   // ── Competency flyout helpers ──
-  const availableCompetencies = useMemo(
-    () => companySkills.filter(s => !selectedCompetencyIds.has(s.id)),
-    [companySkills, selectedCompetencyIds],
-  )
-
   const compFlyoutFiltered = useMemo(() => {
-    if (!compFlyoutSearch.trim()) return availableCompetencies
+    const list = compFlyoutItems.filter(s => !selectedCompetencyIds.has(s.id))
+    if (!compFlyoutSearch.trim()) return list
     const lower = compFlyoutSearch.toLowerCase()
-    return availableCompetencies.filter(s => s.name.toLowerCase().includes(lower) || s.category.toLowerCase().includes(lower))
-  }, [availableCompetencies, compFlyoutSearch])
+    return list.filter(s => s.name.toLowerCase().includes(lower) || s.category.toLowerCase().includes(lower))
+  }, [compFlyoutItems, selectedCompetencyIds, compFlyoutSearch])
 
-  const compFlyoutPaginated = useMemo(
-    () => compFlyoutFiltered.slice(compFlyoutPage * ROWS_PER_PAGE, compFlyoutPage * ROWS_PER_PAGE + ROWS_PER_PAGE),
-    [compFlyoutFiltered, compFlyoutPage],
-  )
+  const compFlyoutPaginated = compFlyoutFiltered
 
   useEffect(() => { setMemberPage(0) }, [members.length])
   useEffect(() => { setCompPage(0) }, [selectedCompetencyIds.size])
@@ -233,6 +245,8 @@ export default function TeamFormPage() {
   const handleMemberFlyoutConfirm = () => {
     const ids = Array.from(flyoutSelected)
     if (ids.length === 0) return
+    const toAdd = flyoutItems.filter(u => flyoutSelected.has(u.id))
+    setAddedMemberMap(prev => ({ ...prev, ...Object.fromEntries(toAdd.map(u => [u.id, { name: u.name, email: u.email }])) }))
     setMembers(prev => [...prev, ...ids.map(uid => ({ userId: uid, isLeader: false }))])
     setFlyoutOpen(false)
   }
@@ -272,6 +286,8 @@ export default function TeamFormPage() {
   const handleCompFlyoutConfirm = () => {
     const ids = Array.from(compFlyoutSelected)
     if (ids.length === 0) return
+    const toAdd = compFlyoutItems.filter(s => compFlyoutSelected.has(s.id))
+    setSelectedCompetencyMap(prev => ({ ...prev, ...Object.fromEntries(toAdd.map(s => [s.id, { name: s.name, category: s.category }])) }))
     setSelectedCompetencyIds(prev => {
       const next = new Set(prev)
       ids.forEach(id => next.add(id))
@@ -368,19 +384,19 @@ export default function TeamFormPage() {
           </Box>
           <Box display='flex' flexDirection='column' gap={2.5}>
             {!isEdit && isAdmin && (
-              <FormControl fullWidth required error={submitted && !companyId}>
-                <InputLabel>Empresa</InputLabel>
-                <Select
-                  label='Empresa'
-                  value={companyId || ''}
-                  onChange={(e) => { setCompanyId(Number(e.target.value)); setMembers([]); setCoordinatorId(''); setSelectedCompetencyIds(new Set()) }}
+              <Box>
+                <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 1 }}>Empresa *</Typography>
+                <Button
+                  variant='outlined'
+                  fullWidth
+                  startIcon={<BusinessIcon />}
+                  onClick={() => setCompanyDrawerOpen(true)}
+                  sx={{ justifyContent: 'flex-start' }}
+                  color={submitted && !companyId ? 'error' : 'primary'}
                 >
-                  <MenuItem value=''><em>Selecione</em></MenuItem>
-                  {companies.map((c) => (
-                    <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  {selectedCompany ? selectedCompany.name : companyId ? `Empresa #${companyId}` : 'Selecionar empresa'}
+                </Button>
+              </Box>
             )}
             <TextField
               label='Nome do time'
@@ -622,7 +638,9 @@ export default function TeamFormPage() {
           </Box>
 
           <Box sx={{ flex: 1, overflow: 'auto' }}>
-            {flyoutFiltered.length === 0 ? (
+            {flyoutMembersLoading && !flyoutPaged ? (
+              <Box display='flex' justifyContent='center' py={6}><CircularProgress /></Box>
+            ) : flyoutFiltered.length === 0 ? (
               <Typography variant='body2' color='text.secondary' sx={{ textAlign: 'center', py: 6 }}>
                 Nenhum colaborador disponível.
               </Typography>
@@ -668,7 +686,7 @@ export default function TeamFormPage() {
                 </Table>
                 <TablePagination
                   component='div'
-                  count={flyoutFiltered.length}
+                  count={flyoutTotalCount}
                   page={flyoutPage}
                   onPageChange={(_, p) => setFlyoutPage(p)}
                   rowsPerPage={ROWS_PER_PAGE}
@@ -730,7 +748,9 @@ export default function TeamFormPage() {
           </Box>
 
           <Box sx={{ flex: 1, overflow: 'auto' }}>
-            {compFlyoutFiltered.length === 0 ? (
+            {compFlyoutLoading && !compFlyoutPaged ? (
+              <Box display='flex' justifyContent='center' py={6}><CircularProgress /></Box>
+            ) : compFlyoutFiltered.length === 0 ? (
               <Typography variant='body2' color='text.secondary' sx={{ textAlign: 'center', py: 6 }}>
                 Nenhuma competência disponível.
               </Typography>
@@ -785,7 +805,7 @@ export default function TeamFormPage() {
                 </Table>
                 <TablePagination
                   component='div'
-                  count={compFlyoutFiltered.length}
+                  count={compFlyoutTotalCount}
                   page={compFlyoutPage}
                   onPageChange={(_, p) => setCompFlyoutPage(p)}
                   rowsPerPage={ROWS_PER_PAGE}
@@ -812,6 +832,14 @@ export default function TeamFormPage() {
       <Snackbar open={!!success} autoHideDuration={3000} onClose={() => setSuccess('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert onClose={() => setSuccess('')} severity='success' variant='filled'>{success}</Alert>
       </Snackbar>
+      {!isEdit && isAdmin && (
+        <CompanyPickerDrawer
+          open={companyDrawerOpen}
+          onClose={() => setCompanyDrawerOpen(false)}
+          onSelect={handleCompanySelect}
+          title='Selecionar empresa'
+        />
+      )}
     </Box>
   )
 }

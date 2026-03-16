@@ -9,11 +9,13 @@ import {
 import { alpha } from '@mui/material/styles'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
+import BusinessIcon from '@mui/icons-material/Business'
 import SchoolIcon from '@mui/icons-material/School'
 import { useSkill, useCreateSkill, useUpdateSkill, useSkillDescriptions, useUpsertDescription, useSkillExpectations, useUpsertExpectation } from '../hooks/useSkills'
 import { useCategories, useRolesByCompany, useNiveis } from '../hooks/useRoleGrade'
-import { useCompanies } from '../hooks/useCompanies'
 import { useAuth } from '../hooks/useAuth'
+import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
+import type { CompanyOptionResponse } from '../types'
 import type { CreateSkillRequest, CompetencyLevel } from '../types'
 import { LEVELS } from '../types'
 import { skillService } from '../services/skillService'
@@ -86,7 +88,8 @@ export default function SkillFormPage() {
   const companyIdForRoles = form.companyId ?? user?.companyId ?? null
   const { data: roles } = useRolesByCompany(companyIdForRoles)
   const { data: niveis } = useNiveis()
-  const { data: companies } = useCompanies()
+  const [companyDrawerOpen, setCompanyDrawerOpen] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<CompanyOptionResponse | null>(null)
 
   const createMutation = useCreateSkill()
   const updateMutation = useUpdateSkill()
@@ -102,6 +105,11 @@ export default function SkillFormPage() {
   const [expSynced, setExpSynced] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [validationErrorMsg, setValidationErrorMsg] = useState<string | null>(null)
+
+  const handleCompanySelect = (company: CompanyOptionResponse | null) => {
+    setSelectedCompany(company)
+    setForm((prev) => ({ ...prev, companyId: company?.id ?? null }))
+  }
 
   useEffect(() => {
     if (isEdit && existingSkill && !synced) {
@@ -303,20 +311,20 @@ export default function SkillFormPage() {
           </Box>
           <Box display='flex' flexDirection='column' gap={2.5}>
             {!isEdit && isAdmin && (
-            <FormControl fullWidth required error={submitted && !form.companyId}>
-              <InputLabel>Empresa</InputLabel>
-              <Select
-                label='Empresa'
-                value={form.companyId ?? ''}
-                onChange={(e) => setForm({ ...form, companyId: e.target.value ? Number(e.target.value) : null })}
+            <Box>
+              <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 1 }}>Empresa *</Typography>
+              <Button
+                variant='outlined'
+                fullWidth
+                startIcon={<BusinessIcon />}
+                onClick={() => setCompanyDrawerOpen(true)}
+                sx={{ justifyContent: 'flex-start' }}
+                color={submitted && !form.companyId ? 'error' : 'primary'}
               >
-                <MenuItem value=''><em>Selecione</em></MenuItem>
-                {companies?.map((c) => (
-                  <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                ))}
-              </Select>
-              {submitted && !form.companyId && <FormHelperText>Campo obrigatório</FormHelperText>}
-            </FormControl>
+                {selectedCompany ? selectedCompany.name : form.companyId ? `Empresa #${form.companyId}` : 'Selecionar empresa'}
+              </Button>
+              {submitted && !form.companyId && <FormHelperText error>Campo obrigatório</FormHelperText>}
+            </Box>
           )}
 
           <TextField
@@ -528,6 +536,14 @@ export default function SkillFormPage() {
           {validationErrorMsg}
         </Alert>
       </Snackbar>
+      {!isEdit && isAdmin && (
+        <CompanyPickerDrawer
+          open={companyDrawerOpen}
+          onClose={() => setCompanyDrawerOpen(false)}
+          onSelect={handleCompanySelect}
+          title='Selecionar empresa'
+        />
+      )}
     </Box>
   )
 }

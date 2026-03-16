@@ -89,6 +89,10 @@ Apenas 401 é tratado; 403 cai no `return Promise.reject(err)` e a chamada que f
 - O usuário vê uma mensagem clara de “sem permissão” (em tela, snackbar ou página dedicada).
 - Fluxo 401 continua como hoje (logout e redirecionamento para login).
 
+### Comportamento implementado
+
+403 é tratado como “sem permissão”: o usuário permanece logado; o frontend usa `err.response?.data?.message` quando a API envia corpo, com fallback para “Você não tem permissão para esta ação.”, e redireciona para a página `/forbidden` (“Acesso negado”) com link para voltar ao início.
+
 ---
 
 ## Item 2: Refresh token (fase 2 – opcional)
@@ -134,6 +138,10 @@ Implementar renovação transparente do access token usando refresh token: o bac
 - Após expirar o access token, uma nova requisição autenticada dispara refresh automático e a requisição é reenviada com sucesso (sem o usuário precisar fazer login de novo).
 - Se o refresh token estiver expirado ou revogado, o cliente faz logout e redireciona para login.
 - Nenhum refresh token em texto plano é logado.
+
+### Comportamento implementado
+
+O login retorna `refreshToken` e opcionalmente `refreshExpiresIn` (segundos). O frontend armazena o refresh token no localStorage; no 401 (exceto em login/refresh), o interceptor chama `POST /auth/refresh`, atualiza o access token e reenvia a requisição (fila evita múltiplas renovações simultâneas). Em falha do refresh, faz logout e redireciona para `/login`. O logout limpa token e refreshToken e opcionalmente chama `POST /auth/logout` para revogar no servidor. Backend: tabela `refresh_tokens`, rotação a cada refresh, configuração `Jwt:RefreshExpiryDays` (padrão 7). Ver README para variável `Jwt__RefreshExpiryDays`.
 
 ---
 

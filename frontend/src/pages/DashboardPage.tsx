@@ -127,12 +127,13 @@ export default function DashboardPage() {
   const isManager     = user?.isManager ?? false
   const isCoordinator = (user?.isCoordinator ?? false) && !isAdmin && !isManager
 
-  // Admin: buscar apenas estatísticas agregadas, sem carregar toda a massa.
-  const { data: adminStats } = useQuery<AdminDashboardStats>({
+  // Admin: buscar apenas estatísticas agregadas; refetch ao montar para evitar tela parada sem requisição ao voltar.
+  const { data: adminStats, isFetching: adminStatsFetching } = useQuery<AdminDashboardStats>({
     queryKey: ['dashboard-admin-stats'],
     queryFn: () => dashboardService.getAdminStats(),
     enabled: isAdmin,
-    staleTime: 2 * 60_000,
+    staleTime: 60_000,
+    refetchOnMount: 'always',
   })
 
   // Demais perfis: continuam usando as listas completas.
@@ -148,8 +149,8 @@ export default function DashboardPage() {
     queryKey: ['teams'],
     queryFn: () => teamService.getAll(),
     enabled: isCoordinator,
-    refetchOnMount: 'always',
-    staleTime: 0,
+    staleTime: 2 * 60_000,
+    refetchOnWindowFocus: false,
   })
 
   /* ── Coordinator: detalhes de cada time (membros) ───────────────── */
@@ -158,6 +159,8 @@ export default function DashboardPage() {
       queryKey: ['team', t.id] as const,
       queryFn: () => teamService.getById(t.id),
       enabled: true,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
     })) : []),
   })
 
@@ -189,6 +192,8 @@ export default function DashboardPage() {
       queryFn: () => assessmentService.getByUser(u.id),
       staleTime: 5 * 60_000,
       enabled: isCoordinator,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
     })),
   })
 
@@ -334,18 +339,25 @@ export default function DashboardPage() {
     return { total, ok, gap1, gap2plus, aderencia, avgGap, topGaps }
   }, [myAssessments])
 
-  /* ── Manager: fetch assessments for all collaborators ────── */
+  /* ── Manager: fetch assessments para um subconjunto de colaboradores (evita N+1 e travamento ao voltar) ────── */
+  const MAX_COLLABORATORS_DASHBOARD = 25
   const collaborators = useMemo(
     () => (users ?? []).filter(u => !u.isManager && u.roleId && u.gradeId),
     [users],
   )
+  const collaboratorsForDashboard = useMemo(
+    () => collaborators.slice(0, MAX_COLLABORATORS_DASHBOARD),
+    [collaborators],
+  )
 
   const assessmentQueries = useQueries({
-    queries: collaborators.map(u => ({
+    queries: collaboratorsForDashboard.map(u => ({
       queryKey: ['assessments', u.id] as const,
       queryFn: () => assessmentService.getByUser(u.id),
       staleTime: 5 * 60_000,
       enabled: isManager,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
     })),
   })
 
@@ -353,9 +365,9 @@ export default function DashboardPage() {
   const someLoading = assessmentQueries.some(q => q.isLoading)
 
   const team = useMemo(() => {
-    if (!allLoaded || collaborators.length === 0) return null
+    if (!allLoaded || collaboratorsForDashboard.length === 0) return null
 
-    const userSummaries = collaborators.map((u, i) => {
+    const userSummaries = collaboratorsForDashboard.map((u, i) => {
       const a = assessmentQueries[i]?.data ?? []
       const total = a.length
       const gapOk = a.filter(x => x.gap <= 0).length
@@ -414,7 +426,7 @@ export default function DashboardPage() {
       byRole, criticalSkills, ranking,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allLoaded, collaborators.length, skills?.length])
+  }, [allLoaded, collaboratorsForDashboard.length, skills?.length])
 
   const adhColor = (pct: number) =>
     pct >= 80 ? BRAND.success : pct >= 50 ? BRAND.warning : BRAND.error
@@ -700,24 +712,29 @@ export default function DashboardPage() {
       {/* ═══ Admin Quick Actions ═══ */}
       {isAdmin && (
         <Box mb={4}>
+          {adminStatsFetching && !adminStats && (
+            <Box display='flex' flexDirection='column' gap={2} mb={3}>
+              <Skeleton variant='rounded' height={120} sx={{ borderRadius: '16px' }} />
+            </Box>
+          )}
           <Box display='flex' gap={3} flexWrap='wrap' mb={3}>
             <StatCard
               label='COLABORADORES'
-              value={totalUsers}
+              value={adminStatsFetching && adminStats ? '…' : totalUsers}
               icon={<PeopleIcon />}
               color={BRAND.cyan}
               gradient={`linear-gradient(135deg, ${BRAND.cyan} 0%, ${BRAND.cyanLight} 100%)`}
             />
             <StatCard
               label='COMPETÊNCIAS'
-              value={totalSkills}
+              value={adminStatsFetching && adminStats ? '…' : totalSkills}
               icon={<SchoolIcon />}
               color={BRAND.purple}
               gradient={`linear-gradient(135deg, ${BRAND.purple} 0%, ${BRAND.purpleLight} 100%)`}
             />
             <StatCard
               label='GESTORES'
-              value={totalManagers}
+              value={adminStatsFetching && adminStats ? '…' : totalManagers}
               icon={<SupervisorAccountIcon />}
               color={BRAND.success}
               gradient={`linear-gradient(135deg, ${BRAND.success} 0%, #69F0AE 100%)`}
@@ -800,6 +817,11 @@ export default function DashboardPage() {
       )}
 
       {/* ═══ Manager Team Summary ═══ */}
+      {isManager && collaborators.length > MAX_COLLABORATORS_DASHBOARD && (
+        <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+          Visão dos primeiros {MAX_COLLABORATORS_DASHBOARD} colaboradores (de {collaborators.length} no total). Acesse Avaliações para ver todos.
+        </Typography>
+      )}
       {isManager && team && (
         <>
           <Divider sx={{ my: 3 }} />

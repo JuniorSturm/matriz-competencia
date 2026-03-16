@@ -9,12 +9,14 @@ import { alpha } from '@mui/material/styles'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
 import LockResetIcon from '@mui/icons-material/LockReset'
+import BusinessIcon from '@mui/icons-material/Business'
 import PeopleIcon from '@mui/icons-material/People'
 import { useUser, useCreateUser, useUpdateUser, useResetPassword } from '../hooks/useUsers'
 import { useRolesByCompany, useNiveis } from '../hooks/useRoleGrade'
 import { useAuth } from '../hooks/useAuth'
-import { useCompanies } from '../hooks/useCompanies'
+import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
 import PageHeader from '../components/PageHeader'
+import type { CompanyOptionResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import type { CreateUserRequest, UpdateUserRequest } from '../types'
 
@@ -57,7 +59,8 @@ export default function UserFormPage() {
 
   const companyIdForRoles = (isEdit ? editForm.companyId : form.companyId) ?? loggedUser?.companyId ?? null
   const { data: roles = [] } = useRolesByCompany(companyIdForRoles)
-  const { data: companies = [] } = useCompanies(isLoggedAdmin)
+  const [companyDrawerOpen, setCompanyDrawerOpen] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<CompanyOptionResponse | null>(null)
 
   if (isEdit && existingUser && !synced) {
     setEditForm({
@@ -81,12 +84,17 @@ export default function UserFormPage() {
   const editingAdmin = isEdit && existingUser?.isAdmin === true
   const canResetPassword = isLoggedAdmin || isLoggedGestor
 
-  const activeCompanies = companies.filter(c => c.isActive)
-
   const currentName = isEdit ? editForm.name : form.name
   const currentCompanyId = isEdit ? editForm.companyId : form.companyId
   const currentRoleId = isEdit ? editForm.roleId : form.roleId
   const currentGradeId = isEdit ? editForm.gradeId : form.gradeId
+
+  const handleCompanySelect = (company: CompanyOptionResponse | null) => {
+    setSelectedCompany(company)
+    const val = company?.id ?? null
+    if (isEdit) setEditForm((prev) => ({ ...prev, companyId: val }))
+    else setForm((prev) => ({ ...prev, companyId: val }))
+  }
 
   if (isLoggedCoordinator && isEdit && existingUser && (existingUser.isManager || existingUser.isCoordinator || existingUser.isAdmin)) {
     return (
@@ -227,23 +235,17 @@ export default function UserFormPage() {
               <Divider />
               <Box>
                 <Typography variant='subtitle2' sx={sectionTitle}>Empresa</Typography>
-                <FormControl fullWidth required error={submitted && !currentCompanyId}>
-                  <InputLabel>Empresa</InputLabel>
-                  <Select
-                    label='Empresa'
-                    value={currentCompanyId ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value ? Number(e.target.value) : null
-                      isEdit
-                        ? setEditForm({ ...editForm, companyId: val })
-                        : setForm({ ...form, companyId: val })
-                    }}
-                  >
-                    <MenuItem value=''><em>Selecione...</em></MenuItem>
-                    {activeCompanies.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-                  </Select>
-                  {submitted && !currentCompanyId && <FormHelperText>Campo obrigatório</FormHelperText>}
-                </FormControl>
+                <Button
+                  variant='outlined'
+                  fullWidth
+                  startIcon={<BusinessIcon />}
+                  onClick={() => setCompanyDrawerOpen(true)}
+                  sx={{ justifyContent: 'flex-start' }}
+                  color={submitted && !currentCompanyId ? 'error' : 'primary'}
+                >
+                  {selectedCompany ? selectedCompany.name : currentCompanyId ? `Empresa #${currentCompanyId}` : 'Selecionar empresa'}
+                </Button>
+                {submitted && !currentCompanyId && <FormHelperText error>Campo obrigatório</FormHelperText>}
               </Box>
             </>
           )}
@@ -399,6 +401,14 @@ export default function UserFormPage() {
           Senha redefinida com sucesso!
         </Alert>
       </Snackbar>
+      {showCompanySelect && (
+        <CompanyPickerDrawer
+          open={companyDrawerOpen}
+          onClose={() => setCompanyDrawerOpen(false)}
+          onSelect={handleCompanySelect}
+          title='Selecionar empresa'
+        />
+      )}
     </Box>
   )
 }

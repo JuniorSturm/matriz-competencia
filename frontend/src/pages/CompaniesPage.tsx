@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
@@ -16,6 +16,7 @@ import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
 
 const colFromSm = { display: { xs: 'none', sm: 'table-cell' } } as const
+const ROWS_PER_PAGE = 50
 
 export default function CompaniesPage() {
   const navigate = useNavigate()
@@ -23,29 +24,21 @@ export default function CompaniesPage() {
   const [nameFilter, setNameFilter] = useState('')
   const [page, setPage] = useState(0)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const rowsPerPage = 50
 
-  const { data: companies, isLoading, error } = useQuery({
-    queryKey: ['companies'],
-    queryFn: companyService.getAll,
+  const { data: paged, isLoading, error } = useQuery({
+    queryKey: ['companies-paged', page + 1, ROWS_PER_PAGE, nameFilter.trim() || ''],
+    queryFn: () => companyService.getPaged(page + 1, ROWS_PER_PAGE, nameFilter.trim() || undefined),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => companyService.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['companies'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies-paged'] })
+    },
   })
 
-  const filtered = useMemo(() => {
-    if (!companies) return []
-    if (!nameFilter.trim()) return companies
-    const lower = nameFilter.toLowerCase()
-    return companies.filter((c) => c.name.toLowerCase().includes(lower))
-  }, [companies, nameFilter])
-
-  const paginated = useMemo(
-    () => filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [filtered, page],
-  )
+  const items = paged?.items ?? []
+  const totalCount = paged?.totalCount ?? 0
 
   const handleDelete = async (id: number) => {
     if (!confirm('Confirma exclusão da empresa?')) return
@@ -68,7 +61,7 @@ export default function CompaniesPage() {
           <Box>
             <Typography variant='h5' fontWeight={700}>Empresas</Typography>
             <Typography variant='body2' color='text.secondary'>
-              {filtered.length} empresa{filtered.length !== 1 ? 's' : ''} cadastrada{filtered.length !== 1 ? 's' : ''}
+              {totalCount} empresa{totalCount !== 1 ? 's' : ''} cadastrada{totalCount !== 1 ? 's' : ''}
             </Typography>
           </Box>
           <Button
@@ -124,7 +117,7 @@ export default function CompaniesPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginated.map((c) => (
+              {items.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>
                     <Box display='flex' alignItems='center' gap={1.5}>
@@ -150,12 +143,12 @@ export default function CompaniesPage() {
                   </TableCell>
                   <TableCell sx={colFromSm}>
                     <Typography variant='body2' color='text.secondary'>
-                      {c.users.filter((u) => !u.isManager).length}
+                      {c.collaboratorCount}
                     </Typography>
                   </TableCell>
                   <TableCell sx={colFromSm}>
                     <Typography variant='body2' color='text.secondary'>
-                      {c.users.filter((u) => u.isManager).length}
+                      {c.managerCount}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -185,14 +178,14 @@ export default function CompaniesPage() {
         </TableContainer>
         <TablePagination
           component='div'
-          count={filtered.length}
+          count={totalCount}
           page={page}
           onPageChange={(_, p) => setPage(p)}
-          rowsPerPage={rowsPerPage}
+          rowsPerPage={ROWS_PER_PAGE}
           rowsPerPageOptions={[50]}
-labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
-        sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider' }}
-      />
+          labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
+          sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider' }}
+        />
     </Paper>
     <Snackbar open={!!deleteError} autoHideDuration={8000} onClose={() => setDeleteError(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
       <Alert severity='error' variant='filled' onClose={() => setDeleteError(null)}>{deleteError}</Alert>

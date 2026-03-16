@@ -86,7 +86,7 @@ public class UserService : IUserService
         return list.Select(Map);
     }
 
-    public async Task<PagedResult<UserResponse>> GetPagedAsync(Guid? currentUserId, int page, int pageSize, string? nameFilter, bool onlyCollaborators)
+    public async Task<PagedResult<UserResponse>> GetPagedAsync(Guid? currentUserId, int page, int pageSize, string? nameFilter, bool onlyCollaborators, int? companyId = null, int? availableForCompanyId = null, int? availableForTeamCompanyId = null, int? excludeTeamId = null, bool? onlyManagers = null, bool? onlyCoordinators = null)
     {
         if (page <= 0) page = 1;
         if (pageSize <= 0) pageSize = PaginationDefaults.DefaultPageSize;
@@ -96,10 +96,36 @@ public class UserService : IUserService
         var all = await GetAllAsync(currentUserId);
         var query = all.AsQueryable();
 
-        if (onlyCollaborators)
+        if (onlyCollaborators && !onlyManagers.HasValue)
         {
             query = query.Where(u => !u.IsAdmin && !u.IsManager && !u.IsCoordinator);
         }
+
+        if (companyId.HasValue)
+            query = query.Where(u => u.CompanyId == companyId.Value);
+
+        if (availableForCompanyId.HasValue)
+        {
+            // Sempre apenas usuários que podem ser vinculados: sem empresa (para não duplicar quem já está na empresa).
+            query = query.Where(u => u.CompanyId == null);
+        }
+
+        // Backend como dono da regra: só devolve colaboradores disponíveis para o time (não estão em outro time).
+        if (availableForTeamCompanyId.HasValue)
+        {
+            query = query.Where(u => u.CompanyId == availableForTeamCompanyId.Value);
+            var assigned = await _teamRepo.GetAssignedMemberIdsAsync(excludeTeamId, availableForTeamCompanyId.Value);
+            var assignedSet = assigned.ToHashSet();
+            query = query.Where(u => !assignedSet.Contains(u.Id));
+        }
+
+        if (onlyManagers == true)
+            query = query.Where(u => u.IsManager && !u.IsAdmin);
+        else if (onlyManagers == false)
+            query = query.Where(u => !u.IsManager && !u.IsAdmin);
+
+        if (onlyCoordinators == true)
+            query = query.Where(u => u.IsCoordinator);
 
         if (!string.IsNullOrWhiteSpace(nameFilter))
         {

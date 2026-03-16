@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box, Button, TextField, Typography, Paper, CircularProgress, Alert,
-  FormControl, InputLabel, Select, MenuItem, Avatar,
+  Avatar,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
+import BusinessIcon from '@mui/icons-material/Business'
 import WorkIcon from '@mui/icons-material/Work'
 import { useAuth } from '../hooks/useAuth'
 import { useRole, useCreateRole, useUpdateRole } from '../hooks/useRoles'
-import { useCompanies } from '../hooks/useCompanies'
+import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
+import type { CompanyOptionResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 
@@ -22,8 +24,8 @@ export default function RoleFormPage() {
   const roleId = id ? parseInt(id, 10) : null
 
   const isAdmin = user?.isAdmin ?? false
-  const { data: companies = [] } = useCompanies(isAdmin)
-  const activeCompanies = companies.filter((c) => c.isActive)
+  const [companyDrawerOpen, setCompanyDrawerOpen] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<CompanyOptionResponse | null>(null)
 
   const { data: existingRole, isLoading: loadingRole } = useRole(roleId)
   const createMutation = useCreateRole()
@@ -51,6 +53,11 @@ export default function RoleFormPage() {
 
   const nameError = submitted && !nome.trim()
   const companyError = submitted && isAdmin && !isEdit && !companyId
+
+  const handleCompanySelect = (company: CompanyOptionResponse | null) => {
+    setSelectedCompany(company)
+    setCompanyId(company?.id ?? '')
+  }
 
   const handleSave = async () => {
     setSubmitted(true)
@@ -111,22 +118,20 @@ export default function RoleFormPage() {
           </Box>
           <Box display='flex' flexDirection='column' gap={2.5}>
             {isAdmin && !isEdit && (
-              <FormControl fullWidth required error={!!companyError}>
-                <InputLabel>Empresa</InputLabel>
-                <Select
-                  value={companyId === '' ? '' : String(companyId)}
-                  label='Empresa'
-                  onChange={(e) => { const v = e.target.value; setCompanyId(v === '' ? '' : Number(v)) }}
+              <Box>
+                <Typography variant='subtitle2' color='text.secondary' sx={{ mb: 1 }}>Empresa *</Typography>
+                <Button
+                  variant='outlined'
+                  fullWidth
+                  startIcon={<BusinessIcon />}
+                  onClick={() => setCompanyDrawerOpen(true)}
+                  sx={{ justifyContent: 'flex-start' }}
+                  color={companyError ? 'error' : 'primary'}
                 >
-                  <MenuItem value=''>
-                    <em>Selecione a empresa</em>
-                  </MenuItem>
-                  {activeCompanies.map((c) => (
-                    <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                  ))}
-                </Select>
+                  {selectedCompany ? selectedCompany.name : companyId ? `Empresa #${companyId}` : 'Selecionar empresa'}
+                </Button>
                 {companyError && <Typography variant='caption' color='error' sx={{ mt: 0.5 }}>Empresa é obrigatória.</Typography>}
-              </FormControl>
+              </Box>
             )}
             <TextField
               label='Nome do cargo'
@@ -176,6 +181,14 @@ export default function RoleFormPage() {
           Salvar
         </Button>
       </Paper>
+      {isAdmin && !isEdit && (
+        <CompanyPickerDrawer
+          open={companyDrawerOpen}
+          onClose={() => setCompanyDrawerOpen(false)}
+          onSelect={handleCompanySelect}
+          title='Selecionar empresa'
+        />
+      )}
     </Box>
   )
 }

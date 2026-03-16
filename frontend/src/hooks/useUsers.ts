@@ -5,10 +5,23 @@ import type { CreateUserRequest, UpdateUserRequest, ResetPasswordRequest, PagedR
 export const useUsers = (enabled: boolean = true) =>
   useQuery({ queryKey: ['users'], queryFn: userService.getAll, enabled })
 
-export const usePagedUsers = (page: number, pageSize: number, name?: string, onlyCollaborators: boolean = true) =>
+export const usePagedUsers = (
+  page: number,
+  pageSize: number,
+  name?: string,
+  onlyCollaborators: boolean = true,
+  companyId?: number | null,
+  availableForCompanyId?: number | null,
+  availableForTeamCompanyId?: number | null,
+  excludeTeamId?: number | null,
+  onlyManagers?: boolean | null,
+  onlyCoordinators?: boolean | null,
+  enabled: boolean = true,
+) =>
   useQuery<PagedResult<UserResponse>>({
-    queryKey: ['users-paged', page, pageSize, name, onlyCollaborators],
-    queryFn: () => userService.getPaged(page, pageSize, name, onlyCollaborators),
+    queryKey: ['users-paged', page, pageSize, name ?? '', onlyCollaborators, companyId ?? '', availableForCompanyId ?? '', availableForTeamCompanyId ?? '', excludeTeamId ?? '', onlyManagers ?? '', onlyCoordinators ?? ''],
+    queryFn: () => userService.getPaged(page, pageSize, name, onlyCollaborators, companyId, availableForCompanyId, availableForTeamCompanyId, excludeTeamId, onlyManagers, onlyCoordinators),
+    enabled,
   })
 
 export const useUser = (id: string) =>
@@ -18,7 +31,10 @@ export const useCreateUser = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: CreateUserRequest) => userService.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['users-paged'] })
+    },
   })
 }
 
@@ -27,7 +43,10 @@ export const useUpdateUser = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateUserRequest }) =>
       userService.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['users-paged'] })
+    },
   })
 }
 
@@ -44,6 +63,9 @@ export const useDeleteUser = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => userService.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['users-paged'] })
+    },
   })
 }

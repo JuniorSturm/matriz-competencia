@@ -1,24 +1,26 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Alert, CircularProgress,
-  InputAdornment, Avatar, Chip, TablePagination, FormControl, InputLabel, Select, MenuItem,
-  Snackbar,
+  InputAdornment, Avatar, Chip, TablePagination, Snackbar,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
+import BusinessIcon from '@mui/icons-material/Business'
 import GroupsIcon from '@mui/icons-material/Groups'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { teamService } from '../services/teamService'
 import { useAuth } from '../hooks/useAuth'
-import { useCompanies } from '../hooks/useCompanies'
+import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
+import type { CompanyOptionResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
 
 const colFromSm = { display: { xs: 'none', sm: 'table-cell' } } as const
+const ROWS_PER_PAGE = 50
 
 export default function TeamsPage() {
   const navigate = useNavigate()
@@ -30,31 +32,31 @@ export default function TeamsPage() {
   const [nameFilter, setNameFilter] = useState('')
   const [page, setPage] = useState(0)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const rowsPerPage = 50
 
-  const companyIdForApi = isAdmin && companyFilter !== '' ? (companyFilter as number) : undefined
-  const { data: teams, isLoading, error } = useQuery({
-    queryKey: ['teams', companyIdForApi],
-    queryFn: () => (companyIdForApi ? teamService.getByCompany(companyIdForApi) : teamService.getAll()),
+  const [selectedCompany, setSelectedCompany] = useState<CompanyOptionResponse | null>(null)
+  const [companyDrawerOpen, setCompanyDrawerOpen] = useState(false)
+  const companyIdParam = isAdmin && companyFilter !== '' ? companyFilter : undefined
+  const nameParam = nameFilter.trim() || undefined
+  const handleCompanySelect = (company: CompanyOptionResponse | null) => {
+    setSelectedCompany(company)
+    setCompanyFilter(company?.id ?? '')
+    setPage(0)
+  }
+  const { data: paged, isLoading, error } = useQuery({
+    queryKey: ['teams-paged', page + 1, ROWS_PER_PAGE, companyIdParam ?? '', nameParam ?? ''],
+    queryFn: () => teamService.getPaged(page + 1, ROWS_PER_PAGE, companyIdParam, nameParam),
   })
-  const { data: companies = [] } = useCompanies(isAdmin)
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => teamService.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teams'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teams'] })
+      queryClient.invalidateQueries({ queryKey: ['teams-paged'] })
+    },
   })
 
-  const filtered = useMemo(() => {
-    if (!teams) return []
-    if (!nameFilter.trim()) return teams
-    const lower = nameFilter.toLowerCase()
-    return teams.filter((t) => t.name.toLowerCase().includes(lower) || (isAdmin && t.companyName?.toLowerCase().includes(lower)))
-  }, [teams, nameFilter])
-
-  const paginated = useMemo(
-    () => filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [filtered, page],
-  )
+  const items = paged?.items ?? []
+  const totalCount = paged?.totalCount ?? 0
 
   const handleDelete = async (id: number) => {
     if (!confirm('Confirma exclusão do time?')) return
@@ -77,7 +79,7 @@ export default function TeamsPage() {
           <Box>
             <Typography variant='h5' fontWeight={700}>Times</Typography>
             <Typography variant='body2' color='text.secondary'>
-              {filtered.length} time{filtered.length !== 1 ? 's' : ''} cadastrado{filtered.length !== 1 ? 's' : ''}
+              {totalCount} time{totalCount !== 1 ? 's' : ''} cadastrado{totalCount !== 1 ? 's' : ''}
             </Typography>
           </Box>
           {canManage && (
@@ -95,19 +97,15 @@ export default function TeamsPage() {
 
       <Box display='flex' flexWrap='wrap' gap={2} alignItems='center' sx={{ mb: 2, mt: 2 }}>
         {isAdmin && (
-          <FormControl size='small' sx={{ minWidth: 220 }}>
-            <InputLabel>Empresa</InputLabel>
-            <Select
-              value={companyFilter === '' ? '' : String(companyFilter)}
-              label='Empresa'
-              onChange={(e) => { const v = e.target.value; setCompanyFilter(v === '' ? '' : Number(v)); setPage(0) }}
-            >
-              <MenuItem value=''>Todas</MenuItem>
-              {companies.filter((c) => c.isActive).map((c) => (
-                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Button
+            variant='outlined'
+            size='small'
+            startIcon={<BusinessIcon />}
+            onClick={() => setCompanyDrawerOpen(true)}
+            sx={{ minWidth: 220, justifyContent: 'flex-start' }}
+          >
+            {selectedCompany ? selectedCompany.name : 'Todas (filtrar por empresa)'}
+          </Button>
         )}
         <TextField
           placeholder={isAdmin ? 'Buscar por nome ou empresa...' : 'Buscar por nome...'}
@@ -147,7 +145,7 @@ export default function TeamsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginated.map((t) => (
+              {items.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell>
                     <Box display='flex' alignItems='center' gap={1.5}>
@@ -165,7 +163,7 @@ export default function TeamsPage() {
                   {isAdmin && (
                     <TableCell sx={colFromSm}>
                       <Typography variant='body2' color='text.secondary'>
-                        {t.companyName ?? (companyFilter !== '' ? (companies.find((c) => c.id === t.companyId)?.name ?? '—') : '—')}
+                        {t.companyName ?? '—'}
                       </Typography>
                     </TableCell>
                   )}
@@ -191,10 +189,10 @@ export default function TeamsPage() {
         </TableContainer>
         <TablePagination
           component='div'
-          count={filtered.length}
+          count={totalCount}
           page={page}
           onPageChange={(_, p) => setPage(p)}
-          rowsPerPage={rowsPerPage}
+          rowsPerPage={ROWS_PER_PAGE}
           rowsPerPageOptions={[50]}
           labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
           sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider' }}
@@ -203,6 +201,14 @@ export default function TeamsPage() {
       <Snackbar open={!!deleteError} autoHideDuration={8000} onClose={() => setDeleteError(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity='error' variant='filled' onClose={() => setDeleteError(null)}>{deleteError}</Alert>
       </Snackbar>
+      {isAdmin && (
+        <CompanyPickerDrawer
+          open={companyDrawerOpen}
+          onClose={() => setCompanyDrawerOpen(false)}
+          onSelect={handleCompanySelect}
+          title='Filtrar por empresa'
+        />
+      )}
     </Box>
   )
 }

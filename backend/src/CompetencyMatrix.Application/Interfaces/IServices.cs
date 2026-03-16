@@ -7,7 +7,7 @@ public interface IUserService
     Task<UserResponse?>              GetByIdAsync(Guid id);
     Task<IEnumerable<UserResponse>>  GetAllAsync(Guid? currentUserId = null);
     Task<IEnumerable<UserResponse>>  GetAllByCompanyAsync(int companyId);
-    Task<PagedResult<UserResponse>>  GetPagedAsync(Guid? currentUserId, int page, int pageSize, string? nameFilter, bool onlyCollaborators);
+    Task<PagedResult<UserResponse>>  GetPagedAsync(Guid? currentUserId, int page, int pageSize, string? nameFilter, bool onlyCollaborators, int? companyId = null, int? availableForCompanyId = null, int? availableForTeamCompanyId = null, int? excludeTeamId = null, bool? onlyManagers = null, bool? onlyCoordinators = null);
     Task<Guid>                       CreateAsync(CreateUserRequest request, Guid? currentUserId = null);
     Task                             UpdateAsync(Guid id, UpdateUserRequest request, Guid? currentUserId = null);
     Task                             ResetPasswordAsync(Guid id, string newPassword);
@@ -41,7 +41,9 @@ public interface IAssessmentService
 
 public interface IAuthService
 {
-    Task<LoginResponse?> LoginAsync(LoginRequest request);
+    Task<LoginResponse?>    LoginAsync(LoginRequest request);
+    Task<RefreshResponse?> RefreshAsync(RefreshRequest request);
+    Task                   RevokeRefreshAsync(string refreshToken);
 }
 
 public interface IRoleGradeService
@@ -65,7 +67,9 @@ public interface IRoleService
 public interface ICompanyService
 {
     Task<CompanyResponse?>             GetByIdAsync(int id);
+    Task<PagedResult<CompanyOptionResponse>> GetFilterOptionsPagedAsync(int page, int pageSize, string? name);
     Task<IEnumerable<CompanyResponse>> GetAllAsync();
+    Task<PagedResult<CompanyListItemResponse>> GetPagedAsync(int page, int pageSize, string? name);
     Task<int>                          CreateAsync(CreateCompanyRequest request);
     Task                               UpdateAsync(int id, UpdateCompanyRequest request);
     Task                               DeleteAsync(int id);
@@ -75,13 +79,14 @@ public interface ICompanyService
 
 public interface ITeamService
 {
-    Task<TeamResponse?>                  GetByIdAsync(int id);
+    Task<TeamResponse?>                     GetByIdAsync(int id);
     Task<IEnumerable<TeamListItemResponse>> GetAllAsync(Guid? currentUserId = null);
     Task<IEnumerable<TeamListItemResponse>> GetAllByCompanyAsync(int companyId);
-    Task<IEnumerable<Guid>>              GetAssignedMemberIdsAsync(int? excludeTeamId = null);
-    Task<int>                            CreateAsync(CreateTeamRequest request);
-    Task                                 UpdateAsync(int id, UpdateTeamRequest request);
-    Task                                 DeleteAsync(int id);
+    Task<PagedResult<TeamListItemResponse>> GetPagedAsync(Guid? currentUserId, int page, int pageSize, int? companyId, string? name);
+    Task<IEnumerable<Guid>>                GetAssignedMemberIdsAsync(int? excludeTeamId = null, int? companyId = null);
+    Task<int>                               CreateAsync(CreateTeamRequest request);
+    Task                                    UpdateAsync(int id, UpdateTeamRequest request);
+    Task                                    DeleteAsync(int id);
 }
 
 public interface IAuditService

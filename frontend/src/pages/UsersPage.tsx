@@ -1,20 +1,23 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Alert, CircularProgress, Chip,
-  InputAdornment, TablePagination, FormControl, InputLabel, Select, MenuItem,
-  Snackbar,
+  InputAdornment, TablePagination, Snackbar,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
-import { useUsers, useDeleteUser } from '../hooks/useUsers'
+import BusinessIcon from '@mui/icons-material/Business'
+import { usePagedUsers, useDeleteUser } from '../hooks/useUsers'
 import { useAuth } from '../hooks/useAuth'
-import { useCompanies } from '../hooks/useCompanies'
+import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
+import type { CompanyOptionResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
+
+const ROWS_PER_PAGE = 50
 
 /** Colunas ocultas em telas pequenas (só a partir de sm) */
 const colFromSm = { display: { xs: 'none', sm: 'table-cell' } } as const
@@ -35,36 +38,36 @@ function getProfileColor(u: { isAdmin: boolean; isManager: boolean; isCoordinato
 
 export default function UsersPage() {
   const navigate = useNavigate()
-  const { data: users, isLoading, error } = useUsers()
-  const deleteMutation = useDeleteUser()
-  const { user: loggedUser } = useAuth()
   const [companyFilter, setCompanyFilter] = useState<number | ''>('')
+  const [selectedCompany, setSelectedCompany] = useState<CompanyOptionResponse | null>(null)
+  const [companyDrawerOpen, setCompanyDrawerOpen] = useState(false)
   const [nameFilter, setNameFilter] = useState('')
   const [page, setPage] = useState(0)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const rowsPerPage = 50
 
+  const { user: loggedUser } = useAuth()
   const isLoggedAdmin = loggedUser?.isAdmin ?? false
-  const { data: companies = [] } = useCompanies(isLoggedAdmin)
   const isLoggedGestor = (loggedUser?.isManager ?? false) && !isLoggedAdmin
   const isLoggedCoordinator = (loggedUser?.isCoordinator ?? false) && !isLoggedAdmin && !(loggedUser?.isManager ?? false)
   const canDelete = isLoggedAdmin || isLoggedGestor
 
-  const filteredUsers = useMemo(() => {
-    if (!users) return []
-    let list = users
-    if (isLoggedAdmin && companyFilter !== '') {
-      list = list.filter((u) => u.companyId !== null && u.companyId === companyFilter)
-    }
-    if (!nameFilter.trim()) return list
-    const lower = nameFilter.toLowerCase()
-    return list.filter((u) => u.name.toLowerCase().includes(lower))
-  }, [users, nameFilter, isLoggedAdmin, companyFilter])
-
-  const paginatedUsers = useMemo(
-    () => filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [filteredUsers, page],
+  const companyIdParam = isLoggedAdmin && companyFilter !== '' ? companyFilter : undefined
+  const handleCompanySelect = (company: CompanyOptionResponse | null) => {
+    setSelectedCompany(company)
+    setCompanyFilter(company?.id ?? '')
+    setPage(0)
+  }
+  const { data: paged, isLoading, error } = usePagedUsers(
+    page + 1,
+    ROWS_PER_PAGE,
+    nameFilter.trim() || undefined,
+    false, // mostrar todos os perfis (admin, gestor, coordenador, colaborador)
+    companyIdParam,
   )
+  const deleteMutation = useDeleteUser()
+
+  const items = paged?.items ?? []
+  const totalCount = paged?.totalCount ?? 0
 
   const handleDelete = async (id: string) => {
     if (!confirm('Confirma exclusão do colaborador?')) return
@@ -87,7 +90,7 @@ export default function UsersPage() {
           <Box>
             <Typography variant='h5' fontWeight={700}>Colaboradores</Typography>
             <Typography variant='body2' color='text.secondary'>
-              {filteredUsers.length} registro{filteredUsers.length !== 1 ? 's' : ''}
+              {totalCount} registro{totalCount !== 1 ? 's' : ''}
             </Typography>
           </Box>
           <Button
@@ -103,19 +106,15 @@ export default function UsersPage() {
 
       <Box display='flex' flexWrap='wrap' gap={2} alignItems='center' sx={{ mb: 2, mt: 2 }}>
         {isLoggedAdmin && (
-          <FormControl size='small' sx={{ minWidth: 220 }}>
-            <InputLabel>Empresa</InputLabel>
-            <Select
-              value={companyFilter === '' ? '' : String(companyFilter)}
-              label='Empresa'
-              onChange={(e) => { const v = e.target.value; setCompanyFilter(v === '' ? '' : Number(v)); setPage(0) }}
-            >
-              <MenuItem value=''>Todas</MenuItem>
-              {companies.filter((c) => c.isActive).map((c) => (
-                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Button
+            variant='outlined'
+            size='small'
+            startIcon={<BusinessIcon />}
+            onClick={() => setCompanyDrawerOpen(true)}
+            sx={{ minWidth: 220, justifyContent: 'flex-start' }}
+          >
+            {selectedCompany ? selectedCompany.name : 'Todas (filtrar por empresa)'}
+          </Button>
         )}
         <TextField
           placeholder='Buscar por nome...'
@@ -157,7 +156,7 @@ export default function UsersPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginatedUsers.map((u) => {
+              {items.map((u) => {
                 const profile = getProfileColor(u)
                 const isCommonUser = !u.isAdmin && !u.isManager && !u.isCoordinator
                 const canEditUser = !isLoggedCoordinator || isCommonUser
@@ -205,10 +204,10 @@ export default function UsersPage() {
         </TableContainer>
         <TablePagination
           component='div'
-          count={filteredUsers.length}
+          count={totalCount}
           page={page}
           onPageChange={(_, p) => setPage(p)}
-          rowsPerPage={rowsPerPage}
+          rowsPerPage={ROWS_PER_PAGE}
           rowsPerPageOptions={[50]}
           labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
           sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider' }}
@@ -217,6 +216,14 @@ export default function UsersPage() {
       <Snackbar open={!!deleteError} autoHideDuration={8000} onClose={() => setDeleteError(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity='error' variant='filled' onClose={() => setDeleteError(null)}>{deleteError}</Alert>
       </Snackbar>
+      {isLoggedAdmin && (
+        <CompanyPickerDrawer
+          open={companyDrawerOpen}
+          onClose={() => setCompanyDrawerOpen(false)}
+          onSelect={handleCompanySelect}
+          title='Filtrar por empresa'
+        />
+      )}
     </Box>
   )
 }

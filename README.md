@@ -113,10 +113,15 @@ psql -U postgres -d competency_matrix -f seed.sql
 | `Jwt__Secret`               | Chave JWT (mín. 32 caracteres)                  | **Obrigatório em produção**; nunca usar valor de exemplo |
 | `Jwt__Issuer`               | Emissor JWT                                     | CompetencyMatrix                       |
 | `Jwt__Audience`             | Audiência JWT                                   | CompetencyMatrix                       |
-| `Jwt__ExpiryMinutes`        | Expiração do token em minutos                   | 480                                    |
+| `Jwt__ExpiryMinutes`        | Expiração do access token em minutos            | 480                                    |
+| `Jwt__RefreshExpiryDays`    | Expiração do refresh token em dias              | 7                                      |
 | `AllowedHosts`              | Hosts permitidos (separados por `;`)            | Em prod: listar domínios; `*` não recomendado |
 
 **Produção:** `Jwt__Secret` é obrigatório e deve ter no mínimo 32 caracteres. Nunca use o valor de exemplo do docker-compose em produção; defina a variável no host ou em um arquivo `.env` não versionado. Configure `AllowedHosts` (ou `appsettings.Production.json`) com os domínios permitidos separados por `;`; usar `*` desabilita a validação e não é recomendado em produção.
+
+**Frontend – autenticação:** em respostas da API, **401** resulta em logout e redirecionamento para `/login`; **403** (sem permissão) não remove o token e redireciona para a página `/forbidden` (“Acesso negado”), com mensagem clara e link para voltar ao início.
+
+**Refresh token:** o login retorna além do access token um refresh token (e opcionalmente `refreshExpiresIn` em segundos). Quando uma requisição autenticada recebe **401** (token expirado), o frontend chama `POST /auth/refresh` com o refresh token; em sucesso, atualiza o access token e reenvia a requisição original. Se o refresh falhar (token expirado ou revogado), o cliente faz logout e redireciona para `/login`. No logout, o frontend pode chamar `POST /auth/logout` com o refresh token para revogá-lo no servidor. Recomenda-se access token com expiração curta (ex.: 15–30 min) e refresh com 7 dias quando usar este fluxo. Para habilitar o refresh token, execute no banco a migration `database/migrations/004_refresh_tokens.sql` (se ainda não aplicada).
 
 ---
 

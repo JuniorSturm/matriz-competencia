@@ -1,3 +1,4 @@
+using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using CompetencyMatrix.Domain.Entities;
 using Dapper;
@@ -41,6 +42,37 @@ public class CompanyRepository : ICompanyRepository
         return await conn.ExecuteScalarAsync<string?>(sql, new { id });
     }
 
+    public async Task<(IEnumerable<CompanyOptionResponse> Items, int TotalCount)> GetFilterOptionsPagedAsync(int page, int pageSize, string? name)
+    {
+        if (page <= 0) page = 1;
+        if (pageSize <= 0) pageSize = 50;
+        pageSize = Math.Min(pageSize, 100);
+        var skip = (page - 1) * pageSize;
+        var namePattern = string.IsNullOrWhiteSpace(name) ? null : $"%{name.Trim()}%";
+
+        using var conn = _ctx.CreateConnection();
+        int total;
+        if (namePattern is null)
+            total = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM companies");
+        else
+            total = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM companies WHERE name ILIKE @namePattern", new { namePattern });
+
+        string dataSql;
+        object dataParams;
+        if (namePattern is null)
+        {
+            dataSql = "SELECT id, name, is_active AS IsActive FROM companies ORDER BY name OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
+            dataParams = new { Skip = skip, Take = pageSize };
+        }
+        else
+        {
+            dataSql = "SELECT id, name, is_active AS IsActive FROM companies WHERE name ILIKE @namePattern ORDER BY name OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
+            dataParams = new { namePattern, Skip = skip, Take = pageSize };
+        }
+        var items = (await conn.QueryAsync<CompanyOptionResponse>(dataSql, dataParams)).ToList();
+        return (items, total);
+    }
+
     public async Task<IEnumerable<Company>> GetAllAsync()
     {
         using var conn = _ctx.CreateConnection();
@@ -67,6 +99,58 @@ public class CompanyRepository : ICompanyRepository
         }
 
         return companies;
+    }
+
+    public async Task<(IEnumerable<CompanyListItemResponse> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? name)
+    {
+        if (page <= 0) page = 1;
+        if (pageSize <= 0) pageSize = 50;
+        pageSize = Math.Min(pageSize, 100);
+        var skip = (page - 1) * pageSize;
+        var namePattern = string.IsNullOrWhiteSpace(name) ? null : $"%{name.Trim()}%";
+
+        using var conn = _ctx.CreateConnection();
+
+        int total;
+        if (namePattern is null)
+        {
+            total = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM companies");
+        }
+        else
+        {
+            total = await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM companies WHERE name ILIKE @namePattern", new { namePattern });
+        }
+        string dataSql;
+        object dataParams;
+        if (namePattern is null)
+        {
+            dataSql = @"
+                SELECT c.id, c.name, c.document, c.email, c.phone, c.is_active AS is_active, c.created_at AS created_at,
+                       (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.is_manager = false) AS collaborator_count,
+                       (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.is_manager = true) AS manager_count
+                FROM companies c
+                ORDER BY c.name
+                OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
+            dataParams = new { Skip = skip, Take = pageSize };
+        }
+        else
+        {
+            dataSql = @"
+                SELECT c.id, c.name, c.document, c.email, c.phone, c.is_active AS is_active, c.created_at AS created_at,
+                       (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.is_manager = false) AS collaborator_count,
+                       (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.is_manager = true) AS manager_count
+                FROM companies c
+                WHERE c.name ILIKE @namePattern
+                ORDER BY c.name
+                OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
+            dataParams = new { namePattern, Skip = skip, Take = pageSize };
+        }
+
+        var rows = await conn.QueryAsync<CompanyListRow>(dataSql, dataParams);
+        var items = rows.Select(r => new CompanyListItemResponse(
+            r.id, r.name, r.document, r.email, r.phone, r.is_active, r.created_at,
+            r.collaborator_count, r.manager_count)).ToList();
+        return (items, total);
     }
 
     public async Task<int> CreateAsync(Company company)
@@ -124,4 +208,17 @@ public class CompanyRepository : ICompanyRepository
         const string sql = "UPDATE users SET company_id = NULL WHERE id = @userId AND company_id = @companyId";
         await conn.ExecuteAsync(sql, new { companyId, userId });
     }
+}
+
+internal sealed class CompanyListRow
+{
+    public int      id                { get; set; }
+    public string   name              { get; set; } = string.Empty;
+    public string?  document          { get; set; }
+    public string?  email             { get; set; }
+    public string?  phone             { get; set; }
+    public bool     is_active         { get; set; }
+    public DateTime created_at        { get; set; }
+    public int      collaborator_count { get; set; }
+    public int      manager_count     { get; set; }
 }

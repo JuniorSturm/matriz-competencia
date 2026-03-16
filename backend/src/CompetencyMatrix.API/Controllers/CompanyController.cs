@@ -1,3 +1,4 @@
+using CompetencyMatrix.Application;
 using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -14,9 +15,31 @@ public class CompanyController : ControllerBase
 
     public CompanyController(ICompanyService service) => _service = service;
 
-    [HttpGet]
-    public async Task<IActionResult> GetAll() =>
-        Ok(await _service.GetAllAsync());
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = PaginationDefaults.DefaultPageSize,
+        [FromQuery] string? name = null)
+    {
+        if (page <= 0 || pageSize <= 0)
+            return BadRequest(new { message = "Parâmetros de paginação inválidos." });
+        pageSize = Math.Min(pageSize, PaginationDefaults.MaxPageSize);
+        var result = await _service.GetPagedAsync(page, pageSize, name);
+        return Ok(result);
+    }
+
+    [HttpGet("options")]
+    public async Task<IActionResult> GetFilterOptions(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? name = null)
+    {
+        if (page <= 0 || pageSize <= 0)
+            return BadRequest(new { message = "Parâmetros de paginação inválidos." });
+        pageSize = Math.Min(pageSize, 100);
+        var result = await _service.GetFilterOptionsPagedAsync(page, pageSize, name);
+        return Ok(result);
+    }
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
@@ -24,6 +47,10 @@ public class CompanyController : ControllerBase
         var company = await _service.GetByIdAsync(id);
         return company is null ? NotFound() : Ok(company);
     }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll() =>
+        Ok(await _service.GetAllAsync());
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCompanyRequest request)

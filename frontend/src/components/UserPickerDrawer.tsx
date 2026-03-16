@@ -32,7 +32,7 @@ export function UserPickerDrawer({ open, title, onClose, onSelect }: UserPickerD
   const [search, setSearch] = useState('')
   const rowsPerPage = 50
 
-  const { data, isLoading } = usePagedUsers(page + 1, rowsPerPage, search || undefined, true)
+  const { data, isLoading } = usePagedUsers(page + 1, rowsPerPage, search || undefined, true, undefined, undefined, undefined, undefined, undefined, undefined, open)
 
   const users = data?.items ?? []
   const total = data?.totalCount ?? 0

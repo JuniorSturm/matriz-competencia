@@ -73,6 +73,49 @@ public class TeamRepository : ITeamRepository
         });
     }
 
+    public async Task<(IEnumerable<Team> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, int? companyId, string? name, IEnumerable<int>? teamIds = null)
+    {
+        if (page <= 0) page = 1;
+        if (pageSize <= 0) pageSize = 50;
+        pageSize = Math.Min(pageSize, 100);
+        var offset = (page - 1) * pageSize;
+        var teamIdsList = teamIds?.ToList();
+        var hasTeamFilter = teamIdsList is { Count: > 0 };
+        var hasCompany = companyId.HasValue;
+        var hasName = !string.IsNullOrWhiteSpace(name);
+        var namePattern = hasName ? $"%{name!.Trim()}%" : null;
+
+        using var conn = _ctx.CreateConnection();
+        var where = new List<string> { "1=1" };
+        if (hasCompany) where.Add("t.company_id = @companyId");
+        if (hasName) where.Add("(t.name ILIKE @namePattern OR c.name ILIKE @namePattern)");
+        if (hasTeamFilter) where.Add("t.id = ANY(@teamIdsList)");
+        var whereClause = " WHERE " + string.Join(" AND ", where);
+
+        var countSql = "SELECT COUNT(*) FROM teams t LEFT JOIN companies c ON c.id = t.company_id" + whereClause;
+        var total = await conn.ExecuteScalarAsync<int>(countSql, new { companyId, namePattern, teamIdsList });
+
+        var dataSql = @"
+            SELECT t.id, t.company_id, t.name, t.description, t.created_at, c.name AS company_name
+            FROM teams t
+            LEFT JOIN companies c ON c.id = t.company_id"
+            + whereClause + @"
+            ORDER BY c.name NULLS LAST, t.name
+            OFFSET @offset LIMIT @pageSize";
+        var rows = await conn.QueryAsync<(int id, int company_id, string name, string? description, DateTime created_at, string? company_name)>(
+            dataSql, new { companyId, namePattern, teamIdsList, offset, pageSize });
+        var items = rows.Select(r => new Team
+        {
+            Id          = r.id,
+            CompanyId   = r.company_id,
+            Name        = r.name,
+            Description = r.description,
+            CreatedAt   = r.created_at,
+            Company     = r.company_name != null ? new Company { Id = r.company_id, Name = r.company_name } : null
+        });
+        return (items, total);
+    }
+
     public async Task<IEnumerable<(Guid UserId, string UserName, string UserEmail, bool IsLeader)>> GetMemberDetailsAsync(int teamId)
     {
         using var conn = _ctx.CreateConnection();
@@ -150,9 +193,18 @@ public class TeamRepository : ITeamRepository
             new { userId });
     }
 
-    public async Task<IEnumerable<Guid>> GetAssignedMemberIdsAsync(int? excludeTeamId = null)
+    public async Task<IEnumerable<Guid>> GetAssignedMemberIdsAsync(int? excludeTeamId = null, int? companyId = null)
     {
         using var conn = _ctx.CreateConnection();
+        if (companyId.HasValue)
+        {
+            const string sqlCompany = @"
+                SELECT DISTINCT tm.user_id
+                FROM team_members tm
+                INNER JOIN users u ON u.id = tm.user_id AND u.company_id = @companyId
+                WHERE tm.is_leader = false AND (@excludeTeamId IS NULL OR tm.team_id != @excludeTeamId)";
+            return await conn.QueryAsync<Guid>(sqlCompany, new { excludeTeamId = excludeTeamId ?? (int?)null, companyId = companyId.Value });
+        }
         if (excludeTeamId.HasValue)
         {
             return await conn.QueryAsync<Guid>(

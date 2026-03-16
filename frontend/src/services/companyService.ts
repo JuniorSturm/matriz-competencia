@@ -1,9 +1,33 @@
 import { api } from './api'
-import type { CompanyResponse, CreateCompanyRequest, UpdateCompanyRequest } from '../types'
+import type {
+  CompanyOptionResponse,
+  CompanyResponse,
+  CompanyListItemResponse,
+  CreateCompanyRequest,
+  UpdateCompanyRequest,
+  PagedResult,
+} from '../types'
 
 export const companyService = {
+  /** Opções para dropdown/filtro (id, name, isActive) — paginado e com busca por nome. */
+  getOptionsPaged: async (
+    page: number,
+    pageSize: number,
+    name?: string | null,
+  ): Promise<PagedResult<CompanyOptionResponse>> => {
+    const res = await api.get<PagedResult<CompanyOptionResponse>>('/companies/options', {
+      params: { page, pageSize, name: name ?? undefined },
+    })
+    return res.data
+  },
   getAll: async (): Promise<CompanyResponse[]> => {
     const res = await api.get<CompanyResponse[]>('/companies')
+    return res.data
+  },
+  getPaged: async (page: number, pageSize: number, name?: string | null): Promise<PagedResult<CompanyListItemResponse>> => {
+    const res = await api.get<PagedResult<CompanyListItemResponse>>('/companies/paged', {
+      params: { page, pageSize, name: name ?? undefined },
+    })
     return res.data
   },
   getById: async (id: number): Promise<CompanyResponse> => {
