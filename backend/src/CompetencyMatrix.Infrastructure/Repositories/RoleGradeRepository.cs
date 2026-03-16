@@ -60,10 +60,4 @@ public class RoleGradeRepository : IRoleGradeRepository
         using var conn = _ctx.CreateConnection();
         return await conn.QueryAsync<Grade>("SELECT id, name, ordinal FROM grades ORDER BY ordinal");
     }
-
-    public async Task<IEnumerable<SkillCategory>> GetAllCategoriesAsync()
-    {
-        using var conn = _ctx.CreateConnection();
-        return await conn.QueryAsync<SkillCategory>("SELECT id, name FROM skill_categories ORDER BY name");
-    }
 }

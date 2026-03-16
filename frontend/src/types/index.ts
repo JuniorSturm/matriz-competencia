@@ -26,7 +26,9 @@ export interface RoleDetailResponse {
 export interface CreateRoleRequest { nome: string; descricao?: string | null; companyId?: number | null }
 export interface UpdateRoleRequest { nome: string; descricao?: string | null }
 export interface NivelOption { id: number; nome: string; ordinal: number }
-export interface CategoryResponse { id: number; nome: string }
+export interface CategoryResponse { id: number; nome: string; companyId: number }
+export interface CreateCategoryRequest { companyId: number; name: string }
+export interface UpdateCategoryRequest { name: string }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 export interface UserResponse {
@@ -70,9 +72,9 @@ export interface ResetPasswordRequest {
 }
 
 // ─── Skills ───────────────────────────────────────────────────────────────────
-export interface SkillResponse   { id: number; name: string; category: string; companyId: number }
-export interface CreateSkillRequest { name: string; category: string; companyId?: number | null }
-export interface UpdateSkillRequest { name: string; category: string }
+export interface SkillResponse   { id: number; name: string; category: string; categoryId: number; companyId: number }
+export interface CreateSkillRequest { name: string; categoryId: number; companyId?: number | null }
+export interface UpdateSkillRequest { name: string; categoryId: number }
 
 export interface PagedResult<T> {
   items: T[]

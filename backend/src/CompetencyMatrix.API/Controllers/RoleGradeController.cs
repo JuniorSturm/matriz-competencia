@@ -15,8 +15,4 @@ public class RoleGradeController : ControllerBase
     [HttpGet("niveis")]
     public async Task<IActionResult> GetNiveis() =>
         Ok(await _service.GetAllGradesAsync());
-
-    [HttpGet("skill-categories")]
-    public async Task<IActionResult> GetCategories() =>
-        Ok(await _service.GetAllCategoriesAsync());
 }

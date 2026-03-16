@@ -2,19 +2,20 @@ namespace CompetencyMatrix.Application.DTOs;
 
 public record CreateSkillRequest(
     string  Name,
-    string  Category,
+    int     CategoryId,
     int?    CompanyId = null
 );
 
 public record UpdateSkillRequest(
     string  Name,
-    string  Category
+    int     CategoryId
 );
 
 public record SkillResponse(
     int     Id,
     string  Name,
     string  Category,
+    int     CategoryId,
     int     CompanyId
 );
 

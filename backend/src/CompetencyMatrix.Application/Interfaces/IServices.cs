@@ -48,7 +48,6 @@ public interface IAuthService
 
 public interface IRoleGradeService
 {
-    Task<IEnumerable<CategoryResponse>> GetAllCategoriesAsync();
     Task<IEnumerable<RoleResponse>>  GetAllRolesAsync();
     Task<IEnumerable<GradeResponse>> GetAllGradesAsync();
 }

@@ -5,4 +5,6 @@ public record RoleDetailResponse(int Id, string Nome, string? Descricao, int Com
 public record CreateRoleRequest(string Nome, string? Descricao, int? CompanyId);
 public record UpdateRoleRequest(string Nome, string? Descricao);
 public record GradeResponse(int Id, string Nome, int Ordinal);
-public record CategoryResponse(int Id, string Nome);
+public record CategoryResponse(int Id, string Nome, int CompanyId);
+public record CreateCategoryRequest(int CompanyId, string Name);
+public record UpdateCategoryRequest(string Name);

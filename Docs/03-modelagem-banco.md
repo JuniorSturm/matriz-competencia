@@ -75,16 +75,36 @@ CREATE TABLE users (
 
 ---
 
+# Tabela categories (categorias por empresa)
+
+Categorias são dinâmicas por empresa (máx. 50 por empresa). Substituem a antiga tabela global `skill_categories`.
+
+```sql
+CREATE TABLE categories (
+    id         SERIAL PRIMARY KEY,
+    company_id INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name       VARCHAR(100) NOT NULL,
+    UNIQUE (company_id, name)
+);
+```
+
+---
+
 # Tabela skills
+
+Competências vinculam-se a uma **categoria** da mesma empresa via `category_id`.
 
 ```sql
 CREATE TABLE skills (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(150),
-    category VARCHAR(100),
-    role_id INT
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(250) NOT NULL,
+    category_id INT NOT NULL REFERENCES categories(id),
+    company_id  INT REFERENCES companies(id),
+    ...
 );
 ```
+
+A coluna `category` (string) foi removida; a migração `005_categories_per_company.sql` cria `categories` a partir dos valores distintos de `(company_id, category)` existentes em `skills`, atualiza `skills.category_id` e remove a tabela `skill_categories`.
 
 ---
 

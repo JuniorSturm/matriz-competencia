@@ -13,23 +13,35 @@ public class SkillRepository : ISkillRepository
     public async Task<Skill?> GetByIdAsync(int id)
     {
         using var conn = _ctx.CreateConnection();
-        return await conn.QueryFirstOrDefaultAsync<Skill>(
-            "SELECT id, name, category, company_id AS CompanyId FROM skills WHERE id = @id", new { id });
+        const string sql = @"
+            SELECT s.id, s.name, s.category_id AS CategoryId, s.company_id AS CompanyId, c.name AS CategoryName
+            FROM skills s
+            JOIN categories c ON c.id = s.category_id
+            WHERE s.id = @id";
+        return await conn.QueryFirstOrDefaultAsync<Skill>(sql, new { id });
     }
 
     public async Task<IEnumerable<Skill>> GetAllAsync()
     {
         using var conn = _ctx.CreateConnection();
-        return await conn.QueryAsync<Skill>(
-            "SELECT id, name, category, company_id AS CompanyId FROM skills ORDER BY category, name");
+        const string sql = @"
+            SELECT s.id, s.name, s.category_id AS CategoryId, s.company_id AS CompanyId, c.name AS CategoryName
+            FROM skills s
+            JOIN categories c ON c.id = s.category_id
+            ORDER BY c.name, s.name";
+        return await conn.QueryAsync<Skill>(sql);
     }
 
     public async Task<IEnumerable<Skill>> GetAllByCompanyAsync(int companyId)
     {
         using var conn = _ctx.CreateConnection();
-        return await conn.QueryAsync<Skill>(
-            "SELECT id, name, category, company_id AS CompanyId FROM skills WHERE company_id = @companyId ORDER BY category, name",
-            new { companyId });
+        const string sql = @"
+            SELECT s.id, s.name, s.category_id AS CategoryId, s.company_id AS CompanyId, c.name AS CategoryName
+            FROM skills s
+            JOIN categories c ON c.id = s.category_id
+            WHERE s.company_id = @companyId
+            ORDER BY c.name, s.name";
+        return await conn.QueryAsync<Skill>(sql, new { companyId });
     }
 
     public async Task<(IEnumerable<Skill> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, int? companyId)
@@ -39,10 +51,11 @@ public class SkillRepository : ISkillRepository
         var offset = (page <= 1 ? 0 : (page - 1) * pageSize);
 
         const string sql = @"
-            SELECT id, name, category, company_id AS CompanyId
-            FROM skills
-            WHERE (@companyId IS NULL OR company_id = @companyId)
-            ORDER BY category, name
+            SELECT s.id, s.name, s.category_id AS CategoryId, s.company_id AS CompanyId, c.name AS CategoryName
+            FROM skills s
+            JOIN categories c ON c.id = s.category_id
+            WHERE (@companyId IS NULL OR s.company_id = @companyId)
+            ORDER BY c.name, s.name
             LIMIT @pageSize OFFSET @offset;
 
             SELECT COUNT(*)
@@ -60,11 +73,11 @@ public class SkillRepository : ISkillRepository
     {
         using var conn = _ctx.CreateConnection();
         const string sql = @"
-            SELECT DISTINCT s.id, s.name, s.category, s.company_id AS CompanyId
+            SELECT DISTINCT s.id, s.name, s.category_id AS CategoryId, s.company_id AS CompanyId, c.name AS CategoryName
             FROM skills s
+            JOIN categories c ON c.id = s.category_id
             JOIN skill_expectations se ON se.skill_id = s.id AND se.role_id = @roleId
-            ORDER BY s.category, s.name";
-
+            ORDER BY c.name, s.name";
         return await conn.QueryAsync<Skill>(sql, new { roleId });
     }
 
@@ -72,10 +85,9 @@ public class SkillRepository : ISkillRepository
     {
         using var conn = _ctx.CreateConnection();
         const string sql = @"
-            INSERT INTO skills (name, category, company_id)
-            VALUES (@Name, @Category, @CompanyId)
+            INSERT INTO skills (name, category_id, company_id)
+            VALUES (@Name, @CategoryId, @CompanyId)
             RETURNING id";
-
         return await conn.ExecuteScalarAsync<int>(sql, skill);
     }
 
@@ -83,9 +95,8 @@ public class SkillRepository : ISkillRepository
     {
         using var conn = _ctx.CreateConnection();
         const string sql = @"
-            UPDATE skills SET name = @Name, category = @Category
+            UPDATE skills SET name = @Name, category_id = @CategoryId
             WHERE id = @Id";
-
         await conn.ExecuteAsync(sql, skill);
     }
 

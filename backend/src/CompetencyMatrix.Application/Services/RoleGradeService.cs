@@ -20,10 +20,4 @@ public class RoleGradeService : IRoleGradeService
         var list = await _repo.GetAllGradesAsync();
         return list.Select(g => new GradeResponse(g.Id, g.Name, g.Ordinal));
     }
-
-    public async Task<IEnumerable<CategoryResponse>> GetAllCategoriesAsync()
-    {
-        var list = await _repo.GetAllCategoriesAsync();
-        return list.Select(c => new CategoryResponse(c.Id, c.Name));
-    }
 }

@@ -32,10 +32,11 @@ public class AssessmentRepository : IAssessmentRepository
                 r.name        AS RoleName
             FROM skill_expectations se
             JOIN skills s ON s.id = se.skill_id
+            JOIN categories c ON c.id = s.category_id
             LEFT JOIN skill_assessments sa ON sa.skill_id = se.skill_id AND sa.user_id = @userId
             LEFT JOIN roles r ON r.id = se.role_id
             WHERE se.role_id = @roleId AND se.grade_id = @gradeId
-            ORDER BY s.category, s.name";
+            ORDER BY c.name, s.name";
 
         return await conn.QueryAsync<AssessmentMatrixRow>(sql, new { userId, roleId, gradeId });
     }
@@ -55,11 +56,12 @@ public class AssessmentRepository : IAssessmentRepository
                 r.name        AS RoleName
             FROM skill_expectations se
             JOIN skills s ON s.id = se.skill_id
+            JOIN categories c ON c.id = s.category_id
             LEFT JOIN skill_assessments sa ON sa.skill_id = se.skill_id AND sa.user_id = @userId
             LEFT JOIN roles r ON r.id = se.role_id
             WHERE se.role_id = @roleId AND se.grade_id = @gradeId
               AND se.skill_id = ANY(@ids)
-            ORDER BY s.category, s.name";
+            ORDER BY c.name, s.name";
 
         return await conn.QueryAsync<AssessmentMatrixRow>(sql, new { userId, roleId, gradeId, ids });
     }

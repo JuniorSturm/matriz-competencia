@@ -7,17 +7,20 @@ namespace CompetencyMatrix.Application.Services;
 public class SkillService : ISkillService
 {
     private readonly ISkillRepository      _repo;
+    private readonly ICategoryRepository   _categoryRepo;
     private readonly IAssessmentRepository _assessmentRepo;
     private readonly ITeamRepository       _teamRepo;
     private readonly IAuditService         _audit;
 
     public SkillService(
         ISkillRepository      repo,
+        ICategoryRepository   categoryRepo,
         IAssessmentRepository assessmentRepo,
         ITeamRepository       teamRepo,
         IAuditService         audit)
     {
         _repo           = repo;
+        _categoryRepo   = categoryRepo;
         _assessmentRepo = assessmentRepo;
         _teamRepo       = teamRepo;
         _audit          = audit;
@@ -55,11 +58,21 @@ public class SkillService : ISkillService
 
     public async Task<int> CreateAsync(CreateSkillRequest request)
     {
+        var companyId = request.CompanyId ?? 0;
+        if (companyId == 0)
+            throw new InvalidOperationException("Empresa é obrigatória.");
+
+        var category = await _categoryRepo.GetByIdAsync(request.CategoryId);
+        if (category is null)
+            throw new InvalidOperationException("Categoria não encontrada.");
+        if (category.CompanyId != companyId)
+            throw new InvalidOperationException("A categoria deve pertencer à mesma empresa da competência.");
+
         var skill = new Skill
         {
-            Name      = request.Name,
-            Category  = request.Category,
-            CompanyId = request.CompanyId ?? 0
+            Name       = request.Name,
+            CategoryId = request.CategoryId,
+            CompanyId  = companyId
         };
         var id = await _repo.CreateAsync(skill);
 
@@ -70,9 +83,9 @@ public class SkillService : ISkillService
             before: null,
             after: new
             {
-                Id        = id,
+                Id         = id,
                 skill.Name,
-                skill.Category,
+                skill.CategoryId,
                 skill.CompanyId,
             },
             companyId: skill.CompanyId);
@@ -85,16 +98,22 @@ public class SkillService : ISkillService
         var skill = await _repo.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Skill {id} não encontrada.");
 
+        var category = await _categoryRepo.GetByIdAsync(request.CategoryId);
+        if (category is null)
+            throw new InvalidOperationException("Categoria não encontrada.");
+        if (category.CompanyId != skill.CompanyId)
+            throw new InvalidOperationException("A categoria deve pertencer à mesma empresa da competência.");
+
         var before = new
         {
             skill.Id,
             skill.Name,
-            skill.Category,
+            skill.CategoryId,
             skill.CompanyId,
         };
 
-        skill.Name     = request.Name;
-        skill.Category = request.Category;
+        skill.Name       = request.Name;
+        skill.CategoryId = request.CategoryId;
 
         await _repo.UpdateAsync(skill);
 
@@ -107,7 +126,7 @@ public class SkillService : ISkillService
             {
                 skill.Id,
                 skill.Name,
-                skill.Category,
+                skill.CategoryId,
                 skill.CompanyId,
             },
             companyId: skill.CompanyId);
@@ -144,7 +163,7 @@ public class SkillService : ISkillService
             {
                 skill.Id,
                 skill.Name,
-                skill.Category,
+                skill.CategoryId,
                 skill.CompanyId,
             },
             after: null,
@@ -228,7 +247,7 @@ public class SkillService : ISkillService
     }
 
     private static SkillResponse Map(Skill s) =>
-        new(s.Id, s.Name, s.Category, s.CompanyId);
+        new(s.Id, s.Name, s.CategoryName ?? string.Empty, s.CategoryId, s.CompanyId);
 
     private Task SafeAuditAsync(
         string  entityType,

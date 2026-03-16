@@ -4,15 +4,18 @@ import {
   Box, Button, TextField, Typography, Paper, CircularProgress, Alert,
   Divider, FormControl, InputLabel, Select, MenuItem, Checkbox, ListItemText,
   OutlinedInput, Chip, FormHelperText,
-  Avatar, Tabs, Tab, Snackbar,
+  Avatar, Tabs, Tab, Snackbar, Drawer, IconButton,
 } from '@mui/material'
+import CloseIcon from '@mui/icons-material/Close'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
 import { alpha } from '@mui/material/styles'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
 import BusinessIcon from '@mui/icons-material/Business'
 import SchoolIcon from '@mui/icons-material/School'
 import { useSkill, useCreateSkill, useUpdateSkill, useSkillDescriptions, useUpsertDescription, useSkillExpectations, useUpsertExpectation } from '../hooks/useSkills'
-import { useCategories, useRolesByCompany, useNiveis } from '../hooks/useRoleGrade'
+import { useCategoriesByCompany, useRolesByCompany, useNiveis, useCreateCategory, useUpdateCategory, useDeleteCategory } from '../hooks/useRoleGrade'
 import { useAuth } from '../hooks/useAuth'
 import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
 import type { CompanyOptionResponse } from '../types'
@@ -79,12 +82,13 @@ export default function SkillFormPage() {
   const { data: existingSkill, isLoading: loadingSkill } = useSkill(skillId)
   const { data: descriptions, isLoading: descLoading } = useSkillDescriptions(skillId)
   const { data: expectations } = useSkillExpectations(skillId)
-  const { data: categories } = useCategories()
-  const [form, setForm] = useState<{ name: string; category: string; companyId: number | null }>({
+  const [form, setForm] = useState<{ name: string; categoryId: number | null; companyId: number | null }>({
     name: '',
-    category: '',
+    categoryId: null,
     companyId: isAdmin ? null : userCompanyId,
   })
+  const companyIdForCategories = form.companyId ?? (isEdit && existingSkill ? existingSkill.companyId : null)
+  const { data: categories } = useCategoriesByCompany(companyIdForCategories)
   const companyIdForRoles = form.companyId ?? user?.companyId ?? null
   const { data: roles } = useRolesByCompany(companyIdForRoles)
   const { data: niveis } = useNiveis()
@@ -105,6 +109,15 @@ export default function SkillFormPage() {
   const [expSynced, setExpSynced] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [validationErrorMsg, setValidationErrorMsg] = useState<string | null>(null)
+  const [categoryFlyoutOpen, setCategoryFlyoutOpen] = useState(false)
+  const [categoryFlyoutError, setCategoryFlyoutError] = useState<string | null>(null)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null)
+  const [editingCategoryName, setEditingCategoryName] = useState('')
+  const createCategoryMutation = useCreateCategory()
+  const updateCategoryMutation = useUpdateCategory()
+  const deleteCategoryMutation = useDeleteCategory()
+  const canManageCategories = isAdmin || (user?.isManager ?? false)
 
   const handleCompanySelect = (company: CompanyOptionResponse | null) => {
     setSelectedCompany(company)
@@ -113,7 +126,11 @@ export default function SkillFormPage() {
 
   useEffect(() => {
     if (isEdit && existingSkill && !synced) {
-      setForm({ name: existingSkill.name, category: existingSkill.category, companyId: existingSkill.companyId })
+      setForm({
+        name: existingSkill.name,
+        categoryId: existingSkill.categoryId ?? null,
+        companyId: existingSkill.companyId,
+      })
       setSynced(true)
     }
   }, [isEdit, existingSkill, synced])
@@ -177,7 +194,7 @@ export default function SkillFormPage() {
   const handleSave = async () => {
     setSubmitted(true)
     setValidationErrorMsg(null)
-    if (!form.name.trim() || !form.category) return
+    if (!form.name.trim() || form.categoryId == null) return
     if (selectedRoleIds.length === 0) return
     if (hasRoleErrors) {
       let firstErrorRoleIdx = 0
@@ -213,13 +230,16 @@ export default function SkillFormPage() {
     let savedSkillId = skillId
 
     if (isEdit && skillId) {
-      await updateMutation.mutateAsync({ id: skillId, data: { name: form.name, category: form.category } })
+      await updateMutation.mutateAsync({
+        id: skillId,
+        data: { name: form.name, categoryId: form.categoryId! },
+      })
       savedSkillId = skillId
     } else {
       const request: CreateSkillRequest = {
         name: form.name,
-        category: form.category,
-        companyId: form.companyId,
+        categoryId: form.categoryId!,
+        companyId: form.companyId ?? undefined,
       }
       savedSkillId = await createMutation.mutateAsync(request)
     }
@@ -336,19 +356,202 @@ export default function SkillFormPage() {
             error={submitted && !form.name.trim()}
             helperText={submitted && !form.name.trim() ? 'Campo obrigatório' : ''}
           />
-          <FormControl fullWidth required error={submitted && !form.category}>
+          <FormControl fullWidth required error={submitted && form.categoryId == null} disabled={!companyIdForCategories}>
             <InputLabel>Categoria</InputLabel>
-            <Select
-              value={form.category}
+            <Select<number | ''>
+              value={form.categoryId ?? ''}
               label='Categoria'
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              onChange={(e) => setForm({ ...form, categoryId: e.target.value === '' ? null : Number(e.target.value) })}
             >
               {categories?.map((c) => (
-                <MenuItem key={c.id} value={c.nome}>{c.nome}</MenuItem>
+                <MenuItem key={c.id} value={c.id}>{c.nome}</MenuItem>
               ))}
             </Select>
-            {submitted && !form.category && <FormHelperText>Campo obrigatório</FormHelperText>}
+            {companyIdForCategories && canManageCategories && (
+              <Button
+                size='small'
+                onClick={() => setCategoryFlyoutOpen(true)}
+                sx={{ mt: 0.5 }}
+              >
+                Gerenciar categorias
+              </Button>
+            )}
+            {submitted && form.categoryId == null && <FormHelperText>Campo obrigatório</FormHelperText>}
           </FormControl>
+          <Drawer
+            anchor='right'
+            open={categoryFlyoutOpen}
+            onClose={() => {
+              setCategoryFlyoutOpen(false)
+              setCategoryFlyoutError(null)
+              setNewCategoryName('')
+              setEditingCategoryId(null)
+              setEditingCategoryName('')
+            }}
+            PaperProps={{
+              sx: { width: { xs: '100%', sm: 420 }, p: 3, display: 'flex', flexDirection: 'column' },
+            }}
+          >
+            <Box display='flex' alignItems='center' justifyContent='space-between' mb={2}>
+              <Typography variant='h6' fontWeight={700}>
+                Categorias
+              </Typography>
+              <IconButton onClick={() => setCategoryFlyoutOpen(false)} aria-label='Fechar'>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+              Crie novas categorias ou renomeie as existentes para esta empresa.
+            </Typography>
+            {categoryFlyoutError && (
+              <Alert severity='error' onClose={() => setCategoryFlyoutError(null)} sx={{ mb: 2 }}>
+                {categoryFlyoutError}
+              </Alert>
+            )}
+            {canManageCategories && (
+              <>
+                <Typography variant='subtitle2' fontWeight={600} color='text.secondary' sx={{ mb: 1 }}>
+                  Nova categoria
+                </Typography>
+                <Box display='flex' gap={1} alignItems='flex-start' sx={{ mb: 2 }}>
+                  <TextField
+                    size='small'
+                    placeholder='Nome'
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    fullWidth
+                  />
+                  <Button
+                    variant='contained'
+                    onClick={async () => {
+                      const companyId = form.companyId ?? existingSkill?.companyId
+                      if (!companyId || !newCategoryName.trim()) return
+                      setCategoryFlyoutError(null)
+                      try {
+                        const id = await createCategoryMutation.mutateAsync({
+                          companyId,
+                          name: newCategoryName.trim(),
+                        })
+                        setForm((prev) => ({ ...prev, categoryId: id }))
+                        setNewCategoryName('')
+                      } catch (err: unknown) {
+                        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                        setCategoryFlyoutError(msg ?? 'Erro ao criar categoria.')
+                      }
+                    }}
+                    disabled={!newCategoryName.trim() || createCategoryMutation.isPending}
+                  >
+                    Criar
+                  </Button>
+                </Box>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant='subtitle2' fontWeight={600} color='text.secondary' sx={{ mb: 1 }}>
+                  Categorias existentes
+                </Typography>
+              </>
+            )}
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              {categories?.length === 0 && (
+                <Typography variant='body2' color='text.secondary'>
+                  Nenhuma categoria cadastrada. Crie uma acima.
+                </Typography>
+              )}
+              {categories?.map((c) => (
+                <Box
+                  key={c.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    py: 0.75,
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                  }}
+                >
+                  {editingCategoryId === c.id ? (
+                    <>
+                      <TextField
+                        size='small'
+                        value={editingCategoryName}
+                        onChange={(e) => setEditingCategoryName(e.target.value)}
+                        fullWidth
+                        autoFocus
+                      />
+                      <Button
+                        size='small'
+                        onClick={async () => {
+                          if (!editingCategoryName.trim()) return
+                          setCategoryFlyoutError(null)
+                          try {
+                            await updateCategoryMutation.mutateAsync({
+                              id: c.id,
+                              data: { name: editingCategoryName.trim() },
+                            })
+                            setEditingCategoryId(null)
+                            setEditingCategoryName('')
+                          } catch (err: unknown) {
+                            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                            setCategoryFlyoutError(msg ?? 'Erro ao renomear categoria.')
+                          }
+                        }}
+                        disabled={!editingCategoryName.trim() || updateCategoryMutation.isPending}
+                      >
+                        Salvar
+                      </Button>
+                      <Button
+                        size='small'
+                        onClick={() => {
+                          setEditingCategoryId(null)
+                          setEditingCategoryName('')
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Typography variant='body2' sx={{ flex: 1 }}>{c.nome}</Typography>
+                      {canManageCategories && (
+                        <>
+                          <IconButton
+                            size='small'
+                            onClick={() => {
+                              setEditingCategoryId(c.id)
+                              setEditingCategoryName(c.nome)
+                            }}
+                            aria-label='Renomear categoria'
+                          >
+                            <EditIcon fontSize='small' />
+                          </IconButton>
+                          <IconButton
+                            size='small'
+                            onClick={async () => {
+                              if (!window.confirm(`Excluir a categoria "${c.nome}"? Só é possível excluir se nenhuma competência estiver usando ela.`)) return
+                              setCategoryFlyoutError(null)
+                              try {
+                                await deleteCategoryMutation.mutateAsync(c.id)
+                                if (form.categoryId === c.id) {
+                                  const rest = categories?.filter((x) => x.id !== c.id) ?? []
+                                  setForm((prev) => ({ ...prev, categoryId: rest[0]?.id ?? null }))
+                                }
+                              } catch (err: unknown) {
+                                const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+                                setCategoryFlyoutError(msg ?? 'Erro ao excluir categoria.')
+                              }
+                            }}
+                            disabled={deleteCategoryMutation.isPending}
+                            aria-label='Excluir categoria'
+                          >
+                            <DeleteIcon fontSize='small' />
+                          </IconButton>
+                        </>
+                      )}
+                    </>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          </Drawer>
 
           <Divider sx={{ mt: 1 }} />
           <Typography variant='subtitle2' fontWeight={600} color='text.secondary'>

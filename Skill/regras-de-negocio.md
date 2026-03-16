@@ -50,7 +50,9 @@
 | `GET /comparisons` | GET | `MANAGER` |
 | `GET /cargos` | GET | Qualquer autenticado |
 | `GET /niveis` | GET | Qualquer autenticado |
-| `GET /skill-categories` | GET | Qualquer autenticado |
+| `GET /categories?companyId=X` | GET | `MANAGER`, `ADMIN`, `COORDINATOR` (empresa do usuário ou qualquer se admin) |
+| `POST /categories` | POST | `MANAGER`, `ADMIN` |
+| `PUT /categories/{id}` | PUT | `MANAGER`, `ADMIN` |
 
 ---
 
@@ -202,17 +204,23 @@ O sistema possui 4 perfis de acesso, em ordem de prioridade:
 
 ### 5.1 Regras Gerais
 - Competências são **globalmente únicas por nome** (não por cargo). Uma mesma competência pode estar vinculada a múltiplos cargos via `skill_expectations`.
-- Cada competência possui uma `category` (texto livre, mas selecionada de categorias pré-definidas na UI).
+- Cada competência possui uma **categoria** (entidade por empresa): a competência referencia `category_id`, e a categoria pertence à mesma empresa da competência. Categorias são dinâmicas: cada empresa tem sua própria lista (máx. 50).
 - O campo `is_meta_2026` existe no banco mas **não é exposto** nos DTOs da API nem na interface.
 
-### 5.2 CRUD de Competências
-- Criar uma competência requer apenas `name` e `category`.
-- Atualizar uma competência altera apenas `name` e `category`.
+### 5.2 Categorias (por empresa)
+- **Listar categorias**: `GET /categories?companyId=X`. Quem pode ver competências da empresa (Admin, Gestor, Coordenador) pode listar categorias.
+- **Criar e renomear categorias**: apenas **Administrador** e **Gestor**. Coordenador só pode usar categorias já existentes no formulário de competência.
+- Cada empresa pode ter no **máximo 50 categorias**. Ao tentar criar além do limite, a API retorna erro.
+- A API de skills continua retornando o **nome** da categoria no campo `category` (string) para exibição; o corpo de create/update de competência usa `categoryId` (int).
+
+### 5.3 CRUD de Competências
+- Criar uma competência requer `name`, `categoryId` e (para admin) `companyId`.
+- Atualizar uma competência altera `name` e `categoryId`.
 - Excluir uma competência **cascateia** a exclusão de todas as suas descrições, expectativas e avaliações.
 - A listagem de competências pode ser filtrada opcionalmente por `roleId` via query param: `GET /skills?roleId=X` retorna apenas competências vinculadas àquele cargo via expectations.
-- Sem filtro de `roleId`, as competências são retornadas ordenadas por `category, name`.
+- Sem filtro de `roleId`, as competências são retornadas ordenadas pelo nome da categoria e pelo nome da competência.
 
-### 5.3 Expectativas por Cargo/Graduação
+### 5.4 Expectativas por Cargo/Graduação
 - Expectativas são inseridas/atualizadas via upsert: `ON CONFLICT (skill_id, role_id, grade_id) DO UPDATE`.
 - Expectativas definem o **nível de competência esperado** para uma combinação de competência/cargo/graduação.
 - No formulário de competência, cargos são selecionados via **multi-select** com checkboxes. Cada cargo selecionado gera um painel accordion.
@@ -221,13 +229,13 @@ O sistema possui 4 perfis de acesso, em ordem de prioridade:
 - Quando o nível de uma graduação é alterado para vazio (`''`), a expectativa para aquele cargo/graduação é **excluída**.
 - Apenas valores alterados são enviados ao servidor (lógica de salvamento baseada em delta).
 
-### 5.4 Descrições por Nível (por Cargo)
+### 5.5 Descrições por Nível (por Cargo)
 - Descrições são inseridas/atualizadas via upsert: `ON CONFLICT (skill_id, role_id, level) DO UPDATE`.
 - Descrições são **por cargo** — cada cargo pode ter suas próprias descrições BRONZE/PRATA/OURO para a mesma competência.
 - Os campos de descrição aparecem **dentro do accordion de cada cargo** no formulário de competência.
 - Apenas descrições alteradas são enviadas ao servidor.
 
-### 5.5 Validação do Formulário de Competência
+### 5.6 Validação do Formulário de Competência
 - **Campos obrigatórios**: Nome e Categoria. Sinalizados com asterisco (`*`).
 - **Ao menos 1 cargo** deve ser selecionado. Se nenhum for selecionado, o campo Cargos é destacado em vermelho com mensagem "Selecione ao menos 1 cargo".
 - Para **cada cargo selecionado**, todos os campos são obrigatórios:
@@ -236,7 +244,7 @@ O sistema possui 4 perfis de acesso, em ordem de prioridade:
 - Ao tentar salvar com campos obrigatórios vazios, os campos inválidos são destacados em vermelho com mensagem "Campo obrigatório" ou "Obrigatório".
 - O botão Salvar é desabilitado apenas durante o salvamento (não mais por campos vazios — a validação ocorre ao clicar).
 
-### 5.6 Listagem de Competências
+### 5.7 Listagem de Competências
 - Competências podem ser filtradas por nome (busca por substring, case-insensitive, no lado do cliente).
 - Confirmação de exclusão: `confirm('Confirma exclusão?')`.
 
@@ -352,7 +360,7 @@ O sistema possui 4 perfis de acesso, em ordem de prioridade:
 ### 10.1 Restrições UNIQUE
 | Tabela | Colunas UNIQUE |
 |---|---|
-| `skill_categories` | `name` |
+| `categories` | `(company_id, name)` |
 | `roles` | `name` |
 | `grades` | `name` |
 | `users` | `email` |
