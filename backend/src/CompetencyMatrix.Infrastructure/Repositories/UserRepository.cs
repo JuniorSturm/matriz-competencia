@@ -105,8 +105,8 @@ public class UserRepository : IUserRepository
     {
         using var conn = _ctx.CreateConnection();
         const string sql = @"
-            INSERT INTO users (id, name, email, password, role_id, grade_id, is_manager, is_admin, is_coordinator, company_id, created_at)
-            VALUES (@Id, @Name, @Email, @Password, @RoleId, @GradeId, @IsManager, @IsAdmin, @IsCoordinator, @CompanyId, @CreatedAt)
+            INSERT INTO users (id, name, email, password, role_id, grade_id, is_manager, is_admin, is_coordinator, is_email_verified, email_verified_at, company_id, created_at)
+            VALUES (@Id, @Name, @Email, @Password, @RoleId, @GradeId, @IsManager, @IsAdmin, @IsCoordinator, @IsEmailVerified, @EmailVerifiedAt, @CompanyId, @CreatedAt)
             RETURNING id";
 
         return await conn.ExecuteScalarAsync<Guid>(sql, user);
@@ -117,7 +117,7 @@ public class UserRepository : IUserRepository
         using var conn = _ctx.CreateConnection();
         const string sql = @"
             UPDATE users
-            SET name = @Name, role_id = @RoleId, grade_id = @GradeId, is_manager = @IsManager, is_coordinator = @IsCoordinator, company_id = @CompanyId
+            SET name = @Name, role_id = @RoleId, grade_id = @GradeId, is_manager = @IsManager, is_coordinator = @IsCoordinator, is_email_verified = @IsEmailVerified, email_verified_at = @EmailVerifiedAt, company_id = @CompanyId
             WHERE id = @Id";
 
         await conn.ExecuteAsync(sql, user);

@@ -23,6 +23,7 @@ import { usePagedUsers } from '../hooks/useUsers'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import type { CreateCompanyRequest, UpdateCompanyRequest, UserResponse } from '../types'
+import { toast } from '../toast'
 
 const ROWS_PER_PAGE = 50
 
@@ -227,6 +228,7 @@ export default function CompanyFormPage() {
         isActive: formData.isActive,
         userIds: allIds,
       })
+      toast.success('Empresa atualizada com sucesso.')
     } else {
       await createMutation.mutateAsync({
         name: formData.name.trim(),
@@ -235,6 +237,7 @@ export default function CompanyFormPage() {
         phone: phoneRaw,
         userIds: allIds,
       })
+      toast.success('Empresa criada com sucesso.')
     }
     navigate('/companies')
   }

@@ -42,8 +42,14 @@ public interface IAssessmentService
 public interface IAuthService
 {
     Task<LoginResponse?>    LoginAsync(LoginRequest request);
+    Task<LoginResponse?>    LoginVerifiedAsync(Guid userId);
     Task<RefreshResponse?> RefreshAsync(RefreshRequest request);
     Task                   RevokeRefreshAsync(string refreshToken);
+}
+
+public interface ISignupService
+{
+    Task<SignupResult> SignupAsync(SignupRequest request, string? ip, string? userAgent);
 }
 
 public interface IRoleGradeService
@@ -99,3 +105,4 @@ public interface IAuditService
         int?    companyId = null,
         int?    teamId    = null);
 }
+

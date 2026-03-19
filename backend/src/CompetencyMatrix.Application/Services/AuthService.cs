@@ -33,6 +33,7 @@ public class AuthService : IAuthService
         var user = await _users.GetByEmailAsync(request.Email);
         if (user is null) return null;
         if (!BC.Verify(request.Password, user.Password)) return null;
+        if (!user.IsEmailVerified) return null;
 
         var accessToken = _jwt.GenerateToken(user.Id, user.Email, user.IsManager, user.IsAdmin, user.IsCoordinator);
         var (refreshValue, refreshExpiresAt) = GenerateRefreshToken();
@@ -45,6 +46,38 @@ public class AuthService : IAuthService
             CreatedAt = DateTime.UtcNow
         };
         await _refreshTokens.CreateAsync(refreshEntity);
+        var refreshExpiresInSeconds = (int)(refreshExpiresAt - DateTime.UtcNow).TotalSeconds;
+        return new LoginResponse(
+            user.Id.ToString(),
+            accessToken,
+            user.Name,
+            user.IsManager,
+            user.IsAdmin,
+            user.IsCoordinator,
+            user.CompanyId,
+            refreshValue,
+            refreshExpiresInSeconds);
+    }
+
+    public async Task<LoginResponse?> LoginVerifiedAsync(Guid userId)
+    {
+        var user = await _users.GetByIdAsync(userId);
+        if (user is null) return null;
+        if (!user.IsEmailVerified) return null;
+
+        var accessToken = _jwt.GenerateToken(user.Id, user.Email, user.IsManager, user.IsAdmin, user.IsCoordinator);
+        var (refreshValue, refreshExpiresAt) = GenerateRefreshToken();
+        var hash = HashRefreshToken(refreshValue);
+
+        var refreshEntity = new RefreshToken
+        {
+            UserId    = user.Id,
+            TokenHash = hash,
+            ExpiresAt = refreshExpiresAt,
+            CreatedAt = DateTime.UtcNow
+        };
+        await _refreshTokens.CreateAsync(refreshEntity);
+
         var refreshExpiresInSeconds = (int)(refreshExpiresAt - DateTime.UtcNow).TotalSeconds;
         return new LoginResponse(
             user.Id.ToString(),

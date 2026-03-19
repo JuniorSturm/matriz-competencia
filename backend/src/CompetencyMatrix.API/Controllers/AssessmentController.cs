@@ -27,7 +27,6 @@ public class AssessmentController : ControllerBase
     }
 
     [HttpGet("{userId:guid}")]
-    [Authorize(Roles = "MANAGER,ADMIN,COORDINATOR")]
     public async Task<IActionResult> GetByUser(Guid userId)
     {
         var currentUserId = GetCurrentUserId(User);

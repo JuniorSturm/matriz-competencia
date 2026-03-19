@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
@@ -14,6 +14,7 @@ import { companyService } from '../services/companyService'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
+import { toast } from '../toast'
 
 const colFromSm = { display: { xs: 'none', sm: 'table-cell' } } as const
 const ROWS_PER_PAGE = 50
@@ -21,6 +22,7 @@ const ROWS_PER_PAGE = 50
 export default function CompaniesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [nameFilterInput, setNameFilterInput] = useState('')
   const [nameFilter, setNameFilter] = useState('')
   const [page, setPage] = useState(0)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -29,6 +31,14 @@ export default function CompaniesPage() {
     queryKey: ['companies-paged', page + 1, ROWS_PER_PAGE, nameFilter.trim() || ''],
     queryFn: () => companyService.getPaged(page + 1, ROWS_PER_PAGE, nameFilter.trim() || undefined),
   })
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setNameFilter(nameFilterInput)
+      setPage(0)
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [nameFilterInput])
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => companyService.delete(id),
@@ -40,22 +50,30 @@ export default function CompaniesPage() {
   const items = paged?.items ?? []
   const totalCount = paged?.totalCount ?? 0
 
+  const filteredItems = useMemo(() => {
+    if (!items.length) return []
+    const term = nameFilter.trim().toLowerCase()
+    if (!term) return items
+    return items.filter((c) => (c.name ?? '').toLowerCase().includes(term))
+  }, [items, nameFilter])
+
   const handleDelete = async (id: number) => {
     if (!confirm('Confirma exclusão da empresa?')) return
     setDeleteError(null)
     try {
       await deleteMutation.mutateAsync(id)
+      toast.success('Empresa excluída com sucesso.')
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       setDeleteError(e?.response?.data?.message ?? 'Não foi possível excluir. Existem registros associados a esta empresa ou uma regra de negócio impede a exclusão.')
     }
   }
 
-  if (isLoading) return <Box display='flex' justifyContent='center' py={8}><CircularProgress /></Box>
-  if (error) return <Alert severity='error'>Erro ao carregar empresas.</Alert>
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
+      {error && (
+        <Alert severity='error' sx={{ mb: 2 }}>Erro ao carregar empresas.</Alert>
+      )}
       <PageHeader>
         <Box display='flex' justifyContent='space-between' alignItems={{ xs: 'stretch', sm: 'center' }} flexWrap='wrap' gap={2}>
           <Box>
@@ -79,8 +97,8 @@ export default function CompaniesPage() {
         <TextField
           placeholder='Buscar por nome...'
           size='small'
-          value={nameFilter}
-          onChange={(e) => { setNameFilter(e.target.value); setPage(0) }}
+          value={nameFilterInput}
+          onChange={(e) => setNameFilterInput(e.target.value)}
           sx={{ minWidth: { xs: 0, sm: 280 }, width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
           InputProps={{
             startAdornment: (
@@ -116,8 +134,22 @@ export default function CompaniesPage() {
                 <TableCell align='right' sx={{ width: 56 }}>Ações</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody>
-              {items.map((c) => (
+              <TableBody>
+              {isLoading && items.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align='center' sx={{ py: 4 }}>
+                    <CircularProgress size={28} sx={{ mr: 1, verticalAlign: 'middle' }} />
+                    Carregando…
+                  </TableCell>
+                </TableRow>
+              ) : filteredItems.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align='center' sx={{ py: 4 }} color='text.secondary'>
+                    {nameFilter.trim() ? 'Nenhuma empresa encontrada para o filtro.' : 'Nenhuma empresa cadastrada.'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+              filteredItems.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>
                     <Box display='flex' alignItems='center' gap={1.5}>
@@ -172,7 +204,8 @@ export default function CompaniesPage() {
                     />
                   </TableCell>
                 </TableRow>
-              ))}
+              )))
+              }
             </TableBody>
           </Table>
         </TableContainer>

@@ -103,7 +103,17 @@ public class SkillRepository : ISkillRepository
     public async Task DeleteAsync(int id)
     {
         using var conn = _ctx.CreateConnection();
-        await conn.ExecuteAsync("DELETE FROM skills WHERE id = @id", new { id });
+        conn.Open();
+        using var tx = conn.BeginTransaction();
+        // Limpeza de vínculos internos (cadastro) para não deixar lixo no banco.
+        await conn.ExecuteAsync("DELETE FROM skill_expectations WHERE skill_id = @id", new { id }, tx);
+        await conn.ExecuteAsync("DELETE FROM skill_descriptions WHERE skill_id = @id", new { id }, tx);
+        // Avaliações (vínculo externo): remove para evitar FK ao deletar a skill.
+        await conn.ExecuteAsync("DELETE FROM skill_assessments WHERE skill_id = @id", new { id }, tx);
+        // Proteção extra contra órfãos em caso de corrida (regra é bloqueada no service).
+        await conn.ExecuteAsync("DELETE FROM team_competencies WHERE skill_id = @id", new { id }, tx);
+        await conn.ExecuteAsync("DELETE FROM skills WHERE id = @id", new { id }, tx);
+        tx.Commit();
     }
 
     public async Task<int> CountExpectationsByRoleAsync(int roleId)

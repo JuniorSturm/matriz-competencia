@@ -15,4 +15,6 @@ public record LoginResponse(
 
 public record RefreshRequest(string RefreshToken);
 
+public record ForgotPasswordRequest(string Email);
+
 public record RefreshResponse(string AccessToken, string? RefreshToken = null, int? RefreshExpiresIn = null);

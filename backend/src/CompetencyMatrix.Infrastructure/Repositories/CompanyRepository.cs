@@ -61,12 +61,12 @@ public class CompanyRepository : ICompanyRepository
         object dataParams;
         if (namePattern is null)
         {
-            dataSql = "SELECT id, name, is_active AS IsActive FROM companies ORDER BY name OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
+            dataSql = "SELECT id, name, is_active AS IsActive FROM companies ORDER BY name OFFSET @Skip LIMIT @Take";
             dataParams = new { Skip = skip, Take = pageSize };
         }
         else
         {
-            dataSql = "SELECT id, name, is_active AS IsActive FROM companies WHERE name ILIKE @namePattern ORDER BY name OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
+            dataSql = "SELECT id, name, is_active AS IsActive FROM companies WHERE name ILIKE @namePattern ORDER BY name OFFSET @Skip LIMIT @Take";
             dataParams = new { namePattern, Skip = skip, Take = pageSize };
         }
         var items = (await conn.QueryAsync<CompanyOptionResponse>(dataSql, dataParams)).ToList();
@@ -130,7 +130,7 @@ public class CompanyRepository : ICompanyRepository
                        (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.is_manager = true) AS manager_count
                 FROM companies c
                 ORDER BY c.name
-                OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
+                OFFSET @Skip LIMIT @Take";
             dataParams = new { Skip = skip, Take = pageSize };
         }
         else
@@ -142,7 +142,7 @@ public class CompanyRepository : ICompanyRepository
                 FROM companies c
                 WHERE c.name ILIKE @namePattern
                 ORDER BY c.name
-                OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY";
+                OFFSET @Skip LIMIT @Take";
             dataParams = new { namePattern, Skip = skip, Take = pageSize };
         }
 
@@ -178,9 +178,28 @@ public class CompanyRepository : ICompanyRepository
     public async Task DeleteAsync(int id)
     {
         using var conn = _ctx.CreateConnection();
+        // CreateConnection() retorna IDbConnection; OpenAsync não está disponível.
+        conn.Open();
+        using var tx = conn.BeginTransaction();
+
+        // Audit logs têm FK para companies; remover antes do DELETE em companies.
+        await conn.ExecuteAsync(
+            "DELETE FROM audit_logs WHERE company_id = @id",
+            new { id },
+            tx);
+
         // Remove company association from users first
-        await conn.ExecuteAsync("UPDATE users SET company_id = NULL WHERE company_id = @id", new { id });
-        await conn.ExecuteAsync("DELETE FROM companies WHERE id = @id", new { id });
+        await conn.ExecuteAsync(
+            "UPDATE users SET company_id = NULL WHERE company_id = @id",
+            new { id },
+            tx);
+
+        await conn.ExecuteAsync(
+            "DELETE FROM companies WHERE id = @id",
+            new { id },
+            tx);
+
+        tx.Commit();
     }
 
     public async Task<IEnumerable<User>> GetUsersByCompanyAsync(int companyId)

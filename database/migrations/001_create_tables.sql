@@ -4,12 +4,6 @@
 
 SET client_encoding = 'UTF8';
 
--- Tabela de categorias de competências
-CREATE TABLE IF NOT EXISTS skill_categories (
-    id   SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE
-);
-
 -- Empresas
 CREATE TABLE IF NOT EXISTS companies (
     id          SERIAL PRIMARY KEY,
@@ -39,26 +33,36 @@ CREATE TABLE IF NOT EXISTS grades (
 
 -- Usuários
 CREATE TABLE IF NOT EXISTS users (
-    id            UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    name          VARCHAR(150) NOT NULL,
-    email         VARCHAR(150) NOT NULL UNIQUE,
-    password      VARCHAR(255) NOT NULL,
-    role_id       INT REFERENCES roles(id),
-    grade_id      INT REFERENCES grades(id),
-    is_manager    BOOLEAN NOT NULL DEFAULT FALSE,
-    is_admin      BOOLEAN NOT NULL DEFAULT FALSE,
-    is_coordinator BOOLEAN NOT NULL DEFAULT FALSE,
-    company_id    INT REFERENCES companies(id),
-    created_at    TIMESTAMP NOT NULL DEFAULT NOW()
+    id                 UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+    name               VARCHAR(150) NOT NULL,
+    email              VARCHAR(150) NOT NULL UNIQUE,
+    password           VARCHAR(255) NOT NULL,
+    role_id            INT REFERENCES roles(id),
+    grade_id           INT REFERENCES grades(id),
+    is_manager         BOOLEAN NOT NULL DEFAULT FALSE,
+    is_admin           BOOLEAN NOT NULL DEFAULT FALSE,
+    is_coordinator     BOOLEAN NOT NULL DEFAULT FALSE,
+    company_id         INT REFERENCES companies(id),
+    is_email_verified  BOOLEAN NOT NULL DEFAULT FALSE,
+    email_verified_at  TIMESTAMPTZ NULL,
+    created_at         TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Categorias dinâmicas por empresa
+CREATE TABLE IF NOT EXISTS categories (
+    id         SERIAL PRIMARY KEY,
+    company_id INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name       VARCHAR(100) NOT NULL,
+    UNIQUE (company_id, name)
 );
 
 -- Competências (sem duplicação; vínculo com cargos via skill_expectations)
 CREATE TABLE IF NOT EXISTS skills (
     id            SERIAL PRIMARY KEY,
     name          VARCHAR(250) NOT NULL,
-    category      VARCHAR(100) NOT NULL,
     is_meta_2026  BOOLEAN NOT NULL DEFAULT FALSE,
-    company_id    INT REFERENCES companies(id)
+    company_id    INT REFERENCES companies(id),
+    category_id   INT NOT NULL REFERENCES categories(id)
 );
 
 -- Descritivos por nível (por cargo)
@@ -117,6 +121,53 @@ CREATE TABLE IF NOT EXISTS team_competencies (
     PRIMARY KEY (team_id, skill_id)
 );
 
+-- Refresh tokens para renovação do access token
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     UUID      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash  VARCHAR(64) NOT NULL,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    revoked_at  TIMESTAMPTZ NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Logs de envio de e-mail
+CREATE TABLE IF NOT EXISTS email_logs (
+    id           BIGSERIAL PRIMARY KEY,
+    "to"         VARCHAR(255) NOT NULL,
+    subject      VARCHAR(255) NOT NULL,
+    template_key VARCHAR(100) NOT NULL,
+    payload      JSONB,
+    sent_at      TIMESTAMPTZ NOT NULL,
+    status       VARCHAR(16) NOT NULL,
+    error        TEXT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Verificação de cadastro (signup)
+CREATE TABLE IF NOT EXISTS signup_verifications (
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company_id   INT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    email        VARCHAR(150) NOT NULL,
+    code_hash    VARCHAR(128) NOT NULL,
+    expires_at   TIMESTAMPTZ NOT NULL,
+    attempts     INT NOT NULL DEFAULT 0,
+    verified_at  TIMESTAMPTZ NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Tokens de redefinição de senha
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id           BIGSERIAL PRIMARY KEY,
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash   VARCHAR(128) NOT NULL,
+    type         VARCHAR(16) NOT NULL,
+    expires_at   TIMESTAMPTZ NOT NULL,
+    used_at      TIMESTAMPTZ NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Auditoria de operações (CREATE / UPDATE / DELETE)
 CREATE TABLE IF NOT EXISTS audit_logs (
     id           BIGSERIAL PRIMARY KEY,
@@ -139,34 +190,41 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 -- ============================================================
 -- Índices
 -- ============================================================
-CREATE INDEX IF NOT EXISTS idx_assessment_user           ON skill_assessments (user_id);
-CREATE INDEX IF NOT EXISTS idx_skill_category            ON skills (category);
-CREATE INDEX IF NOT EXISTS idx_expectation_role_grade    ON skill_expectations (role_id, grade_id);
-CREATE INDEX IF NOT EXISTS idx_users_email               ON users (email);
-CREATE INDEX IF NOT EXISTS idx_teams_company             ON teams (company_id);
-CREATE INDEX IF NOT EXISTS idx_team_members_team         ON team_members (team_id);
-CREATE INDEX IF NOT EXISTS idx_team_members_user         ON team_members (user_id);
-CREATE INDEX IF NOT EXISTS idx_skills_company            ON skills (company_id);
-CREATE INDEX IF NOT EXISTS idx_team_competencies_team    ON team_competencies (team_id);
-CREATE INDEX IF NOT EXISTS idx_team_competencies_skill   ON team_competencies (skill_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_user                    ON skill_assessments (user_id);
+CREATE INDEX IF NOT EXISTS idx_expectation_role_grade             ON skill_expectations (role_id, grade_id);
+CREATE INDEX IF NOT EXISTS idx_expectation_skill                  ON skill_expectations (skill_id);
+CREATE INDEX IF NOT EXISTS idx_users_email                        ON users (email);
+CREATE INDEX IF NOT EXISTS idx_users_company_id                   ON users (company_id);
+CREATE INDEX IF NOT EXISTS idx_users_company_name                 ON users (company_id, name);
+CREATE INDEX IF NOT EXISTS idx_teams_company                      ON teams (company_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_team                  ON team_members (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user                  ON team_members (user_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user_leader           ON team_members (user_id, is_leader);
+CREATE INDEX IF NOT EXISTS idx_skills_company                     ON skills (company_id);
+CREATE INDEX IF NOT EXISTS idx_skills_category_id                 ON skills (category_id);
+CREATE INDEX IF NOT EXISTS idx_skills_company_category_id_name    ON skills (company_id, category_id, name);
+CREATE INDEX IF NOT EXISTS idx_skill_descriptions_skill           ON skill_descriptions (skill_id);
+CREATE INDEX IF NOT EXISTS idx_skill_descriptions_role            ON skill_descriptions (role_id);
+CREATE INDEX IF NOT EXISTS idx_team_competencies_team             ON team_competencies (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_competencies_skill            ON team_competencies (skill_id);
+CREATE INDEX IF NOT EXISTS idx_skill_assessments_skill            ON skill_assessments (skill_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_user_skill              ON skill_assessments (user_id, skill_id);
 
--- Índices adicionais de performance (unificados dos migrations 005 e 006)
-CREATE INDEX IF NOT EXISTS idx_users_company_id          ON users (company_id);
-CREATE INDEX IF NOT EXISTS idx_expectation_skill         ON skill_expectations (skill_id);
-CREATE INDEX IF NOT EXISTS idx_assessment_user_skill     ON skill_assessments (user_id, skill_id);
-CREATE INDEX IF NOT EXISTS idx_skill_descriptions_skill  ON skill_descriptions (skill_id);
-CREATE INDEX IF NOT EXISTS idx_team_members_user_leader  ON team_members (user_id, is_leader);
+-- Índices de autenticação e segurança
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash          ON refresh_tokens (token_hash);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id             ON refresh_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at          ON refresh_tokens (expires_at);
 
-CREATE INDEX IF NOT EXISTS idx_skills_company_category_name
-    ON skills (company_id, category, name);
-CREATE INDEX IF NOT EXISTS idx_skills_category_name
-    ON skills (category, name);
-CREATE INDEX IF NOT EXISTS idx_users_company_name
-    ON users (company_id, name);
-CREATE INDEX IF NOT EXISTS idx_skill_assessments_skill
-    ON skill_assessments (skill_id);
-CREATE INDEX IF NOT EXISTS idx_skill_descriptions_role
-    ON skill_descriptions (role_id);
+CREATE INDEX IF NOT EXISTS idx_email_logs_created_at              ON email_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_email_logs_to_created_at           ON email_logs ("to", created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_signup_verifications_email_created_at
+    ON signup_verifications (email, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_signup_verifications_email_code_hash
+    ON signup_verifications (email, code_hash);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_hash
+    ON password_reset_tokens (token_hash);
 
 -- Auditoria: paginação e filtros por empresa/usuário
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at

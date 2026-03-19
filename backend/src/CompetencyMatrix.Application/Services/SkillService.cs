@@ -137,14 +137,6 @@ public class SkillService : ISkillService
         var skill = await _repo.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Competência {id} não encontrada.");
 
-        var expectations = await _repo.GetExpectationsBySkillAsync(id);
-        if (expectations.Any())
-            throw new InvalidOperationException("Não é possível excluir a competência: existem expectativas de nível vinculadas. Remova as expectativas antes de excluir.");
-
-        var descriptions = await _repo.GetDescriptionsAsync(id);
-        if (descriptions.Any())
-            throw new InvalidOperationException("Não é possível excluir a competência: existem descrições vinculadas. Remova as descrições antes de excluir.");
-
         var assessmentCount = await _assessmentRepo.CountBySkillAsync(id);
         if (assessmentCount > 0)
             throw new InvalidOperationException("Não é possível excluir a competência: existem avaliações vinculadas. Remova as avaliações antes de excluir.");

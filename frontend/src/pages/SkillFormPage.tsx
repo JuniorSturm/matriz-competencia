@@ -24,6 +24,7 @@ import { LEVELS } from '../types'
 import { skillService } from '../services/skillService'
 import PageHeader from '../components/PageHeader'
 import { BRAND } from '../theme/ThemeProvider'
+import { toast } from '../toast'
 
 const DESC_LEVELS = ['BRONZE', 'PRATA', 'OURO'] as const
 
@@ -235,6 +236,7 @@ export default function SkillFormPage() {
         data: { name: form.name, categoryId: form.categoryId! },
       })
       savedSkillId = skillId
+      toast.success('Competência atualizada com sucesso.')
     } else {
       const request: CreateSkillRequest = {
         name: form.name,
@@ -242,6 +244,7 @@ export default function SkillFormPage() {
         companyId: form.companyId ?? undefined,
       }
       savedSkillId = await createMutation.mutateAsync(request)
+      toast.success('Competência criada com sucesso.')
     }
 
     if (!savedSkillId) return

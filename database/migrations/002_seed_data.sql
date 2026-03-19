@@ -20,29 +20,46 @@ TRUNCATE TABLE
     skill_descriptions,
     skill_expectations,
     skills,
+    categories,
     users,
     grades,
     roles,
-    skill_categories,
     companies
 RESTART IDENTITY CASCADE;
 
--- ============================================================
--- CATEGORIAS DE COMPETÊNCIAS
--- ============================================================
-INSERT INTO skill_categories (name) VALUES
-    ('Desenvolvimento'),
-    ('Devops'),
-    ('Geral'),
-    ('Negócio'),
-    ('Testes')
-ON CONFLICT (name) DO NOTHING;
+-- Compatibilidade com seeds antigos:
+-- - adiciona coluna textual "category" em skills para receber os valores existentes do seed
+-- - torna category_id anulável durante o carregamento; no final do script voltamos a exigir NOT NULL
+ALTER TABLE skills
+    ADD COLUMN IF NOT EXISTS category VARCHAR(100);
+
+ALTER TABLE skills
+    ALTER COLUMN category_id DROP NOT NULL;
+
+-- Em execuções repetidas, o seed pode ter tornado company_id NOT NULL.
+-- Para manter compatibilidade com os INSERTs antigos (que populam company_id no final),
+-- liberamos temporariamente a coluna durante a carga.
+ALTER TABLE skills
+    ALTER COLUMN company_id DROP NOT NULL;
 
 -- ============================================================
 -- EMPRESA INICIAL
 -- ============================================================
 INSERT INTO companies (name, document, email, phone)
-VALUES ('NDD Tech', '00.000.000/0001-00', 'contato@nddtech.com', '(00) 0000-0000');
+SELECT 'NDD Tech', '00.000.000/0001-00', 'contato@nddtech.com', '(00) 0000-0000'
+WHERE NOT EXISTS (SELECT 1 FROM companies WHERE name = 'NDD Tech');
+
+-- ============================================================
+-- CATEGORIAS DE COMPETÊNCIAS (tabela nova: categories)
+-- ============================================================
+INSERT INTO categories (company_id, name)
+SELECT id, unnest(ARRAY['Desenvolvimento','Devops','Geral','Negócio','Testes']::varchar[])
+FROM companies
+WHERE name = 'NDD Tech'
+ON CONFLICT (company_id, name) DO NOTHING;
+
+-- ============================================================
+-- (bloco de empresa movido para antes das categorias)
 
 -- ============================================================
 -- ROLES (áreas de atuação) por empresa
@@ -93,6 +110,23 @@ VALUES (
     '$2a$11$hJlpe4Kww9XQN2JQUg4EkOvRMRbnXy77zPPSI8Mum359TrO.eX22q',
     NULL,
     NULL,
+    TRUE,
+    FALSE,
+    FALSE,
+    (SELECT id FROM companies WHERE name = 'NDD Tech'),
+    NOW()
+)
+ON CONFLICT (email) DO NOTHING;
+
+-- Gestor específico: Saulo Varela
+INSERT INTO users (id, name, email, password, role_id, grade_id, is_manager, is_admin, is_coordinator, company_id, created_at)
+VALUES (
+    gen_random_uuid(),
+    'Saulo Varela',
+    'saulo.varela@nddtech.com',
+    '$2a$11$hJlpe4Kww9XQN2JQUg4EkOvRMRbnXy77zPPSI8Mum359TrO.eX22q',
+    (SELECT id FROM roles WHERE name = 'Desenvolvedor Backend' AND company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')),
+    (SELECT id FROM grades WHERE name = 'SENIOR'),
     TRUE,
     FALSE,
     FALSE,
@@ -6206,6 +6240,127 @@ SET company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')
 WHERE company_id IS NULL;
 
 ALTER TABLE skills ALTER COLUMN company_id SET NOT NULL;
+
+-- ============================================================
+-- Vincular todas as competências às categorias (categories/category_id)
+-- usando a coluna legacy "category" preenchida pelos seeds originais.
+-- ============================================================
+INSERT INTO categories (company_id, name)
+SELECT DISTINCT company_id, category
+FROM skills
+WHERE company_id IS NOT NULL
+  AND category IS NOT NULL
+  AND TRIM(category) <> ''
+ON CONFLICT (company_id, name) DO NOTHING;
+
+UPDATE skills s
+SET category_id = c.id
+FROM categories c
+WHERE c.company_id = s.company_id
+  AND c.name = s.category
+  AND s.category_id IS NULL;
+
+-- Para qualquer skill ainda sem category_id, usa a primeira categoria da empresa
+UPDATE skills s
+SET category_id = (
+    SELECT c.id
+    FROM categories c
+    WHERE c.company_id = s.company_id
+    ORDER BY c.id
+    LIMIT 1
+)
+WHERE s.company_id IS NOT NULL
+  AND s.category_id IS NULL;
+
+ALTER TABLE skills ALTER COLUMN category_id SET NOT NULL;
+
+-- ============================================================
+-- Time Starship: garantir vínculos para todos os colaboradores
+-- ============================================================
+INSERT INTO teams (company_id, name, description, created_at)
+VALUES (
+    (SELECT id FROM companies WHERE name = 'NDD Tech'),
+    'Starship',
+    'Time principal da NDD Tech',
+    NOW()
+)
+ON CONFLICT (company_id, name) DO NOTHING;
+
+-- Coordenador Alvadi como líder do time
+INSERT INTO team_members (team_id, user_id, is_leader)
+SELECT
+    t.id,
+    u.id,
+    TRUE
+FROM teams t
+JOIN users u ON u.email = 'alvadi.pedrao@nddtech.com'
+WHERE t.name = 'Starship'
+  AND t.company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')
+ON CONFLICT (team_id, user_id) DO NOTHING;
+
+-- Gestor Saulo como membro não-líder
+INSERT INTO team_members (team_id, user_id, is_leader)
+SELECT
+    t.id,
+    u.id,
+    FALSE
+FROM teams t
+JOIN users u ON u.email = 'saulo.varela@nddtech.com'
+WHERE t.name = 'Starship'
+  AND t.company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')
+ON CONFLICT (team_id, user_id) DO NOTHING;
+
+-- Todos os demais colaboradores da NDD Tech também fazem parte do time Starship
+INSERT INTO team_members (team_id, user_id, is_leader)
+SELECT
+    t.id,
+    u.id,
+    FALSE
+FROM teams t
+JOIN users u
+  ON u.company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')
+WHERE t.name = 'Starship'
+  AND t.company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')
+  AND u.email NOT IN ('alvadi.pedrao@nddtech.com', 'saulo.varela@nddtech.com')
+ON CONFLICT (team_id, user_id) DO NOTHING;
+
+-- ============================================================
+-- Ajustes finais em usuários: vincular todos à NDD Tech e marcar e-mail verificado
+-- ============================================================
+UPDATE users
+SET company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')
+WHERE company_id IS NULL;
+
+-- Reforço: após garantir company_id, inclui TODOS os usuários da NDD Tech no time Starship
+INSERT INTO team_members (team_id, user_id, is_leader)
+SELECT
+    t.id,
+    u.id,
+    (u.email = 'alvadi.pedrao@nddtech.com')
+FROM teams t
+JOIN users u
+  ON u.company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')
+WHERE t.name = 'Starship'
+  AND t.company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')
+ON CONFLICT (team_id, user_id) DO NOTHING;
+
+UPDATE users
+SET is_email_verified = TRUE,
+    email_verified_at = COALESCE(email_verified_at, NOW());
+
+-- ============================================================
+-- Vincular competências ao time Starship
+-- ============================================================
+INSERT INTO team_competencies (team_id, skill_id)
+SELECT
+    t.id AS team_id,
+    s.id AS skill_id
+FROM teams t
+JOIN skills s
+  ON s.company_id = t.company_id
+WHERE t.name = 'Starship'
+  AND t.company_id = (SELECT id FROM companies WHERE name = 'NDD Tech')
+ON CONFLICT (team_id, skill_id) DO NOTHING;
 INSERT INTO skill_assessments (user_id, skill_id, current_level, last_updated) SELECT u.id, s.id, 'PRATA', NOW() FROM users u, skills s WHERE u.email = 'joao.moraes@empresa.com' AND s.name = 'NUGET' ON CONFLICT (user_id, skill_id) DO UPDATE SET current_level = EXCLUDED.current_level;
 INSERT INTO skill_assessments (user_id, skill_id, current_level, last_updated) SELECT u.id, s.id, 'OURO', NOW() FROM users u, skills s WHERE u.email = 'joao.moraes@empresa.com' AND s.name = 'Mediator (Biblioteca)' ON CONFLICT (user_id, skill_id) DO UPDATE SET current_level = EXCLUDED.current_level;
 INSERT INTO skill_assessments (user_id, skill_id, current_level, last_updated) SELECT u.id, s.id, 'DESCONHECE', NOW() FROM users u, skills s WHERE u.email = 'joao.moraes@empresa.com' AND s.name = 'Odata' ON CONFLICT (user_id, skill_id) DO UPDATE SET current_level = EXCLUDED.current_level;

@@ -11,6 +11,8 @@ public class User
     public bool      IsManager    { get; set; }
     public bool      IsAdmin     { get; set; }
     public bool      IsCoordinator { get; set; }
+    public bool      IsEmailVerified { get; set; }
+    public DateTime? EmailVerifiedAt { get; set; }
     public int?      CompanyId   { get; set; }
     public DateTime  CreatedAt  { get; set; }
 

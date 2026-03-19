@@ -16,6 +16,7 @@ import BusinessIcon from '@mui/icons-material/Business'
 import WorkIcon from '@mui/icons-material/Work'
 import GroupsIcon from '@mui/icons-material/Groups'
 import HistoryIcon from '@mui/icons-material/History'
+import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded'
 
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
   { label: 'Avaliações',    icon: <AssessmentIcon />,     path: '/assessments', managerOnly: false, adminOnly: false, coordinatorOk: true },
   { label: 'Comparação',    icon: <CompareArrowsIcon />,  path: '/comparison',  managerOnly: true,  adminOnly: false, coordinatorOk: true },
   { label: 'Auditoria',     icon: <HistoryIcon />,        path: '/audit',       managerOnly: true,  adminOnly: false, coordinatorOk: true },
+  { label: 'E-mails',      icon: <MailOutlineRoundedIcon />, path: '/admin/emails', managerOnly: false, adminOnly: true, coordinatorOk: false },
 ]
 
 export default function AppLayout({ children }: { children: ReactNode }) {

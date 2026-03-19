@@ -30,8 +30,20 @@ services:
       Jwt__Secret: "CHANGE_ME_TO_A_VERY_LONG_SECRET_KEY_AT_LEAST_32_CHARS"
       Jwt__Issuer: "CompetencyMatrix"
       Jwt__Audience: "CompetencyMatrix"
-      Jwt__ExpiryMinutes: "480"
+      # Access token curto (15 min) para evitar ficar aceito por muitas horas sem renovação
+      Jwt__ExpiryMinutes: "15"
+      # Refresh token com 60 min e renovação em cada uso → até 1h de inatividade máxima
+      Jwt__RefreshExpiryMinutes: "60"
       AllowedHosts: "*"
+      # Configurações de e-mail (Brevo SMTP)
+      Email__Host: "smtp-relay.brevo.com"
+      Email__Port: "587"
+      Email__User: "a53eb8001@smtp-brevo.com"
+      Email__Password: "${BREVO_SMTP_KEY}"
+      Email__From: "contato@jstrsystem.com.br"
+      Email__Ssl: "true"
+      # BaseUrl público usado para links enviados por e-mail
+      Frontend__BaseUrl: "http://localhost:3000"
     ports:
       - "5100:5000"
     depends_on:

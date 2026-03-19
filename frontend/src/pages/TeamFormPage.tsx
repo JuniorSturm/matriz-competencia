@@ -26,6 +26,7 @@ import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import type { CreateTeamRequest, UpdateTeamRequest, TeamMemberRequest, CompanyOptionResponse } from '../types'
+import { toast } from '../toast'
 
 const ROWS_PER_PAGE = 50
 
@@ -120,6 +121,38 @@ export default function TeamFormPage() {
     }
   }, [isEdit, existingTeam, synced])
 
+  // Preenche nome/categoria das competências já vinculadas (edição), para não exibir apenas o ID.
+  useEffect(() => {
+    const ids = Array.from(selectedCompetencyIds)
+    if (ids.length === 0) return
+
+    const missing = ids.filter((sid) => !selectedCompetencyMap[sid])
+    if (missing.length === 0) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const results = await Promise.all(
+          missing.map(async (sid) => {
+            const s = await skillService.getById(sid)
+            return { id: sid, name: s?.name ?? `Competência #${sid}`, category: s?.category ?? '—' }
+          }),
+        )
+        if (cancelled) return
+        setSelectedCompetencyMap((prev) => ({
+          ...prev,
+          ...Object.fromEntries(results.map((r) => [r.id, { name: r.name, category: r.category }])),
+        }))
+      } catch {
+        // Se falhar, mantém fallback por ID.
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedCompetencyIds, selectedCompetencyMap])
+
   useEffect(() => {
     if (!isEdit && !isAdmin && managerCompanyId) {
       setCompanyId(managerCompanyId)
@@ -141,6 +174,7 @@ export default function TeamFormPage() {
       queryClient.invalidateQueries({ queryKey: ['teams-paged'] })
       queryClient.invalidateQueries({ queryKey: ['assessments'] })
       queryClient.invalidateQueries({ queryKey: ['comparison'] })
+      toast.success('Time criado com sucesso.')
       navigate('/teams')
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
@@ -156,6 +190,7 @@ export default function TeamFormPage() {
       queryClient.invalidateQueries({ queryKey: ['teams', teamId] })
       queryClient.invalidateQueries({ queryKey: ['assessments'] })
       queryClient.invalidateQueries({ queryKey: ['comparison'] })
+      toast.success('Time atualizado com sucesso.')
       navigate('/teams')
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
@@ -546,16 +581,9 @@ export default function TeamFormPage() {
                             <Typography variant='body2' fontWeight={600}>{s.name}</Typography>
                           </TableCell>
                           <TableCell>
-                            <Chip
-                              label={s.category}
-                              size='small'
-                              sx={{
-                                bgcolor: alpha(BRAND.purple, 0.12),
-                                color: BRAND.purpleLight,
-                                fontWeight: 600,
-                                fontSize: '0.75rem',
-                              }}
-                            />
+                            <Typography variant='body2' color='text.secondary' sx={{ maxWidth: 360, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={s.category}>
+                              {s.category}
+                            </Typography>
                           </TableCell>
                           <TableCell align='right'>
                             <Tooltip title='Remover' arrow>

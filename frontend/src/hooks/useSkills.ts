@@ -43,7 +43,10 @@ export const useCreateSkill = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: CreateSkillRequest) => skillService.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['skills'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['skills'] })
+      qc.invalidateQueries({ queryKey: ['skills-paged'] })
+    },
   })
 }
 
@@ -52,7 +55,11 @@ export const useUpdateSkill = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateSkillRequest }) =>
       skillService.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['skills'] }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['skills'] })
+      qc.invalidateQueries({ queryKey: ['skills-paged'] })
+      qc.invalidateQueries({ queryKey: ['skill', vars.id] })
+    },
   })
 }
 
@@ -60,7 +67,10 @@ export const useDeleteSkill = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => skillService.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['skills'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['skills'] })
+      qc.invalidateQueries({ queryKey: ['skills-paged'] })
+    },
   })
 }
 

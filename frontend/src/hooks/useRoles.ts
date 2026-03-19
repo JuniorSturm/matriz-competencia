@@ -13,7 +13,10 @@ export const useCreateRole = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: CreateRoleRequest) => roleService.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['roles'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['roles'] })
+      qc.invalidateQueries({ queryKey: ['roles-paged'] })
+    },
   })
 }
 
@@ -22,7 +25,10 @@ export const useUpdateRole = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateRoleRequest }) =>
       roleService.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['roles'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['roles'] })
+      qc.invalidateQueries({ queryKey: ['roles-paged'] })
+    },
   })
 }
 
@@ -30,6 +36,9 @@ export const useDeleteRole = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => roleService.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['roles'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['roles'] })
+      qc.invalidateQueries({ queryKey: ['roles-paged'] })
+    },
   })
 }

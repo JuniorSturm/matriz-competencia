@@ -26,6 +26,36 @@ docker-compose up -d
 - **Frontend:** `http://localhost:3000`
 - **API:** `http://localhost:5100`
 
+### Onboarding self-service (signup e convites)
+
+- **Signup público de empresa + primeiro gestor**
+  - Endpoint: `POST /auth/signup` (público, sem autenticação).
+  - Payload (JSON):
+    - `name`, `document`, `email`, `phone`: dados da empresa.
+    - `userName`, `userEmail`, `password`: dados do primeiro usuário gestor.
+  - Respostas:
+    - **200 OK** com `LoginResponse` (login automático) em caso de sucesso.
+    - **409/400** com mensagem clara em caso de e-mail já utilizado ou validação.
+  - No frontend:
+    - Rota pública `/signup` com formulário de empresa + primeiro usuário.
+    - Link “Criar conta” na tela de login (`/login`).
+
+- **Convites por e-mail**
+  - Modelo de dados: tabela `invites` (PostgreSQL) com colunas principais:
+    - `id`, `email`, `company_id`, `invited_by_user_id`, `token_hash`, `expires_at`, `used_at`, `created_at`.
+  - Envio de convite:
+    - Endpoint: `POST /invites` (restrito a `MANAGER`/`ADMIN`).
+    - Payload: `{ "email": string, "companyId": number }`.
+    - Gera token de uso único, persiste convite e envia e-mail com link:
+      - `GET {FrontendBaseUrl}/invite/accept?token=...`.
+  - Aceitação do convite:
+    - Endpoint de validação: `GET /invites/accept?token=...` (público).
+    - Endpoint de aceite: `POST /invites/accept` (público) com `{ token, name, password }`.
+    - Cria usuário na empresa do convite e marca `used_at`.
+  - No frontend:
+    - Ação “Convidar por e-mail” em `Colaboradores` (gestão de usuários) para enviar convites.
+    - Rota pública `/invite/accept` para ativar conta a partir do link recebido.
+
 ### Health check da API
 
 - **Liveness:** `GET http://localhost:5100/health/live`

@@ -1,8 +1,10 @@
 using System.Linq;
+using System.Security.Cryptography;
 using CompetencyMatrix.Application;
 using CompetencyMatrix.Application.DTOs;
 using CompetencyMatrix.Application.Interfaces;
 using CompetencyMatrix.Domain.Entities;
+using Microsoft.Extensions.Configuration;
 using BC = BCrypt.Net.BCrypt;
 
 namespace CompetencyMatrix.Application.Services;
@@ -14,19 +16,31 @@ public class UserService : IUserService
     private readonly ICompanyRepository    _companyRepo;
     private readonly IAssessmentRepository _assessmentRepo;
     private readonly IAuditService         _audit;
+    private readonly EmailService          _emailService;
+    private readonly IPasswordResetTokenRepository _passwordTokens;
+    private readonly string              _frontendBaseUrl;
 
     public UserService(
         IUserRepository       repo,
         ITeamRepository       teamRepo,
         ICompanyRepository    companyRepo,
         IAssessmentRepository assessmentRepo,
-        IAuditService         audit)
+        IAuditService         audit,
+        EmailService          emailService,
+        IPasswordResetTokenRepository passwordTokens,
+        IConfiguration        configuration)
     {
         _repo           = repo;
         _teamRepo       = teamRepo;
         _companyRepo    = companyRepo;
         _assessmentRepo = assessmentRepo;
         _audit          = audit;
+        _emailService   = emailService;
+        _passwordTokens  = passwordTokens;
+
+        _frontendBaseUrl =
+            configuration["Frontend:BaseUrl"]
+            ?? "http://localhost:3000";
     }
 
     public async Task<UserResponse?> GetByIdAsync(Guid id)
@@ -172,12 +186,13 @@ public class UserService : IUserService
             Id            = Guid.NewGuid(),
             Name          = request.Name,
             Email         = request.Email,
-            Password      = BC.HashPassword(request.Password),
+            Password      = BC.HashPassword(request.Password ?? GenerateTempPassword()),
             RoleId        = roleId,
             GradeId       = gradeId,
             IsManager     = isManager,
             IsAdmin       = false,
             IsCoordinator = isCoordinator,
+            IsEmailVerified = false,
             CompanyId     = companyId,
             CreatedAt     = DateTime.UtcNow
         };
@@ -205,6 +220,34 @@ public class UserService : IUserService
                 user.CompanyId,
             },
             companyId: user.CompanyId);
+
+        if (!user.IsManager)
+        {
+            var rawToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
+            var token = new PasswordResetToken
+            {
+                UserId = user.Id,
+                TokenHash = HashToken(rawToken),
+                Type = "SET",
+                ExpiresAt = DateTime.UtcNow.AddHours(24),
+                CreatedAt = DateTime.UtcNow
+            };
+            token.Id = await _passwordTokens.CreateAsync(token);
+
+            var companyName = (await _companyRepo.GetByIdAsync(companyId ?? 0))?.Name ?? "sua empresa";
+            await _emailService.SendAsync(
+                EmailTemplateKey.WelcomeSetPassword,
+                user.Email,
+                $"Bem-vindo ao sistema - defina sua senha",
+                new
+                {
+                    ProjectName = "Skillhub",
+                    LogoUrl = string.Empty,
+                    Name = user.Name,
+                    CompanyName = companyName,
+                    Link = $"{_frontendBaseUrl.TrimEnd('/')}/password/reset?token={Uri.EscapeDataString(rawToken)}"
+                });
+        }
 
         return newId;
     }
@@ -380,5 +423,18 @@ public class UserService : IUserService
         {
             return Task.CompletedTask;
         }
+    }
+
+    private static string GenerateTempPassword()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(24);
+        return Convert.ToBase64String(bytes);
+    }
+
+    private static string HashToken(string value)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(value);
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 }

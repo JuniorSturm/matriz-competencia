@@ -16,6 +16,7 @@ import type { CompanyOptionResponse, SkillResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
+import { toast } from '../toast'
 
 export default function SkillsPage() {
   const navigate = useNavigate()
@@ -53,6 +54,7 @@ export default function SkillsPage() {
     setDeleteError(null)
     try {
       await deleteMutation.mutateAsync(id)
+      toast.success('Competência excluída com sucesso.')
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       setDeleteError(e?.response?.data?.message ?? 'Não foi possível excluir. Existem registros associados a esta competência ou uma regra de negócio impede a exclusão.')

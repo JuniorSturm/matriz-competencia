@@ -3,15 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box, Button, TextField, Typography, Checkbox, FormControlLabel,
   FormControl, InputLabel, Select, MenuItem, Paper, CircularProgress, Alert,
-  Snackbar, FormHelperText, Divider, Avatar,
+  FormHelperText, Divider, Avatar,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
-import LockResetIcon from '@mui/icons-material/LockReset'
 import BusinessIcon from '@mui/icons-material/Business'
 import PeopleIcon from '@mui/icons-material/People'
-import { useUser, useCreateUser, useUpdateUser, useResetPassword } from '../hooks/useUsers'
+import { useUser, useCreateUser, useUpdateUser } from '../hooks/useUsers'
 import { useRolesByCompany, useNiveis } from '../hooks/useRoleGrade'
 import { useAuth } from '../hooks/useAuth'
 import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
@@ -19,6 +18,7 @@ import PageHeader from '../components/PageHeader'
 import type { CompanyOptionResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import type { CreateUserRequest, UpdateUserRequest } from '../types'
+import { toast } from '../toast'
 
 const EMPTY_CREATE: CreateUserRequest = {
   name: '', email: '', password: '', roleId: null, gradeId: null,
@@ -41,7 +41,6 @@ export default function UserFormPage() {
   const { data: existingUser, isLoading: loadingUser } = useUser(id ?? '')
   const createMutation = useCreateUser()
   const updateMutation = useUpdateUser()
-  const resetPwdMutation = useResetPassword()
   const { data: niveis = [] } = useNiveis()
 
   const isLoggedAdmin = loggedUser?.isAdmin ?? false
@@ -52,9 +51,7 @@ export default function UserFormPage() {
   const [editForm, setEditForm] = useState<UpdateUserRequest>({
     name: '', roleId: null, gradeId: null, isManager: false, isCoordinator: false, companyId: null,
   })
-  const [newPassword, setNewPassword] = useState('')
   const [synced, setSynced] = useState(false)
-  const [pwdSuccess, setPwdSuccess] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
   const companyIdForRoles = (isEdit ? editForm.companyId : form.companyId) ?? loggedUser?.companyId ?? null
@@ -75,14 +72,14 @@ export default function UserFormPage() {
   }
 
   const showProfileSection = isLoggedAdmin || isLoggedGestor
-  const showCompanySelect = isLoggedAdmin
+  // Padrão das telas: empresa só é selecionável no "criar", não no "editar".
+  const showCompanySelect = isLoggedAdmin && !isEdit
 
   const hasProfileCreate = form.isManager || (form.isCoordinator ?? false)
   const hasProfileEdit = editForm.isManager || (editForm.isCoordinator ?? false)
   const hasProfile = isEdit ? hasProfileEdit : hasProfileCreate
 
   const editingAdmin = isEdit && existingUser?.isAdmin === true
-  const canResetPassword = isLoggedAdmin || isLoggedGestor
 
   const currentName = isEdit ? editForm.name : form.name
   const currentCompanyId = isEdit ? editForm.companyId : form.companyId
@@ -116,23 +113,17 @@ export default function UserFormPage() {
 
     if (isEdit && id) {
       if (!hasProfileEdit && (!editForm.roleId || !editForm.gradeId)) return
-      if (showCompanySelect && !editingAdmin && !editForm.companyId) return
+      // Em edição, não permitimos alterar empresa via UI.
       await updateMutation.mutateAsync({ id, data: editForm })
+      toast.success('Colaborador atualizado com sucesso.')
     } else {
       if (!form.email.trim() || !isValidEmail(form.email)) return
-      if (!form.password.trim()) return
       if (!hasProfileCreate && (!form.roleId || !form.gradeId)) return
       if (showCompanySelect && !form.companyId) return
       await createMutation.mutateAsync(form)
+      toast.success('Colaborador criado com sucesso.')
     }
     navigate('/users')
-  }
-
-  const handleResetPassword = async () => {
-    if (!id || !newPassword.trim()) return
-    await resetPwdMutation.mutateAsync({ id, data: { password: newPassword } })
-    setNewPassword('')
-    setPwdSuccess(true)
   }
 
   const handleProfileChange = (field: 'isManager' | 'isCoordinator', checked: boolean) => {
@@ -213,16 +204,6 @@ export default function UserFormPage() {
                           ? 'E-mail inválido'
                           : ''
                     }
-                  />
-                  <TextField
-                    label='Senha'
-                    type='password'
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    fullWidth
-                    required
-                    error={submitted && !form.password.trim()}
-                    helperText={submitted && !form.password.trim() ? 'Campo obrigatório' : ''}
                   />
                 </>
               )}
@@ -329,34 +310,7 @@ export default function UserFormPage() {
             </>
           )}
 
-          {/* ── Redefinir Senha (edit only) ── */}
-          {isEdit && canResetPassword && (
-            <>
-              <Divider />
-              <Box>
-                <Typography variant='subtitle2' sx={sectionTitle}>Redefinir Senha</Typography>
-                <Box display='flex' gap={1} alignItems='flex-start'>
-                  <TextField
-                    label='Nova Senha'
-                    type='password'
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    fullWidth
-                    size='small'
-                  />
-                  <Button
-                    variant='outlined'
-                    startIcon={<LockResetIcon />}
-                    onClick={handleResetPassword}
-                    disabled={!newPassword.trim() || resetPwdMutation.isPending}
-                    sx={{ whiteSpace: 'nowrap', minWidth: 160 }}
-                  >
-                    Redefinir
-                  </Button>
-                </Box>
-              </Box>
-            </>
-          )}
+          {/* Senha é definida via e-mail de boas-vindas */}
           </Box>
         </Paper>
       </Box>
@@ -391,16 +345,6 @@ export default function UserFormPage() {
         </Button>
       </Paper>
 
-      <Snackbar
-        open={pwdSuccess}
-        autoHideDuration={3000}
-        onClose={() => setPwdSuccess(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={() => setPwdSuccess(false)} severity='success' variant='filled'>
-          Senha redefinida com sucesso!
-        </Alert>
-      </Snackbar>
       {showCompanySelect && (
         <CompanyPickerDrawer
           open={companyDrawerOpen}

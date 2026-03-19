@@ -3,7 +3,7 @@ namespace CompetencyMatrix.Application.DTOs;
 public record CreateUserRequest(
     string Name,
     string Email,
-    string Password,
+    string? Password,
     int?   RoleId,
     int?   GradeId,
     bool   IsManager,

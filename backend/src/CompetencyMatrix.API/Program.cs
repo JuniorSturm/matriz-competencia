@@ -4,6 +4,7 @@ using CompetencyMatrix.Application.Services;
 using CompetencyMatrix.Infrastructure.Data;
 using CompetencyMatrix.Infrastructure.Repositories;
 using CompetencyMatrix.Infrastructure.Security;
+using CompetencyMatrix.Infrastructure.Services;
 using CompetencyMatrix.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -48,9 +49,15 @@ builder.Services.AddScoped<ICategoryRepository,    CategoryRepository>();
 builder.Services.AddScoped<ICompanyRepository,    CompanyRepository>();
 builder.Services.AddScoped<ITeamRepository,       TeamRepository>();
 builder.Services.AddScoped<IAuditLogRepository,   AuditLogRepository>();
+builder.Services.AddScoped<IInviteRepository,     InviteRepository>();
+builder.Services.AddScoped<IEmailLogRepository,   EmailLogRepository>();
+builder.Services.AddScoped<ISignupVerificationRepository, SignupVerificationRepository>();
+builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+builder.Services.AddScoped<IDashboardRepository,  DashboardRepository>();
 
 // ─── Services ─────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService,       AuthService>();
+builder.Services.AddScoped<ISignupService,     SignupService>();
 builder.Services.AddScoped<IUserService,       UserService>();
 builder.Services.AddScoped<ISkillService,      SkillService>();
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
@@ -60,6 +67,8 @@ builder.Services.AddScoped<IRoleService,       RoleService>();
 builder.Services.AddScoped<ICompanyService,    CompanyService>();
 builder.Services.AddScoped<ITeamService,       TeamService>();
 builder.Services.AddScoped<IAuditService,      ApiAuditService>();
+builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton<IJwtService,     JwtService>();
 
 builder.Services.AddHttpContextAccessor();

@@ -18,6 +18,7 @@ import type { RoleDetailResponse, CompanyOptionResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
+import { toast } from '../toast'
 
 const colFromSm = { display: { xs: 'none', sm: 'table-cell' } } as const
 
@@ -60,6 +61,7 @@ export default function RolesPage() {
     setDeleteError(null)
     try {
       await deleteMutation.mutateAsync(id)
+      toast.success('Cargo excluído com sucesso.')
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       setDeleteError(e?.response?.data?.message ?? 'Não foi possível excluir. Existem registros associados a este cargo ou uma regra de negócio impede a exclusão.')

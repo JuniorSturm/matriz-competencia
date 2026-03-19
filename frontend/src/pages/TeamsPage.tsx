@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
@@ -18,6 +18,7 @@ import type { CompanyOptionResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
+import { toast } from '../toast'
 
 const colFromSm = { display: { xs: 'none', sm: 'table-cell' } } as const
 const ROWS_PER_PAGE = 50
@@ -36,15 +37,14 @@ export default function TeamsPage() {
   const [selectedCompany, setSelectedCompany] = useState<CompanyOptionResponse | null>(null)
   const [companyDrawerOpen, setCompanyDrawerOpen] = useState(false)
   const companyIdParam = isAdmin && companyFilter !== '' ? companyFilter : undefined
-  const nameParam = nameFilter.trim() || undefined
   const handleCompanySelect = (company: CompanyOptionResponse | null) => {
     setSelectedCompany(company)
     setCompanyFilter(company?.id ?? '')
     setPage(0)
   }
   const { data: paged, isLoading, error } = useQuery({
-    queryKey: ['teams-paged', page + 1, ROWS_PER_PAGE, companyIdParam ?? '', nameParam ?? ''],
-    queryFn: () => teamService.getPaged(page + 1, ROWS_PER_PAGE, companyIdParam, nameParam),
+    queryKey: ['teams-paged', page + 1, ROWS_PER_PAGE, companyIdParam ?? ''],
+    queryFn: () => teamService.getPaged(page + 1, ROWS_PER_PAGE, companyIdParam, undefined),
   })
 
   const deleteMutation = useMutation({
@@ -58,11 +58,23 @@ export default function TeamsPage() {
   const items = paged?.items ?? []
   const totalCount = paged?.totalCount ?? 0
 
+  const filteredItems = useMemo(() => {
+    if (!items.length) return []
+    const term = nameFilter.trim().toLowerCase()
+    if (!term) return items
+    return items.filter((t) => {
+      const byName = (t.name ?? '').toLowerCase().includes(term)
+      const byCompany = (t.companyName ?? '').toLowerCase().includes(term)
+      return byName || byCompany
+    })
+  }, [items, nameFilter])
+
   const handleDelete = async (id: number) => {
     if (!confirm('Confirma exclusão do time?')) return
     setDeleteError(null)
     try {
       await deleteMutation.mutateAsync(id)
+      toast.success('Time excluído com sucesso.')
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       setDeleteError(e?.response?.data?.message ?? 'Não foi possível excluir. Existem registros associados a este time ou uma regra de negócio impede a exclusão.')
@@ -145,7 +157,7 @@ export default function TeamsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map((t) => (
+              {filteredItems.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell>
                     <Box display='flex' alignItems='center' gap={1.5}>

@@ -10,11 +10,13 @@ public class CategoryService : ICategoryService
 
     private readonly ICategoryRepository _repo;
     private readonly IUserRepository      _userRepo;
+    private readonly IAuditService        _audit;
 
-    public CategoryService(ICategoryRepository repo, IUserRepository userRepo)
+    public CategoryService(ICategoryRepository repo, IUserRepository userRepo, IAuditService audit)
     {
         _repo    = repo;
         _userRepo = userRepo;
+        _audit   = audit;
     }
 
     public async Task<IEnumerable<CategoryResponse>> GetByCompanyIdAsync(int companyId)
@@ -46,7 +48,22 @@ public class CategoryService : ICategoryService
             CompanyId = request.CompanyId,
             Name      = name
         };
-        return await _repo.CreateAsync(category);
+        var id = await _repo.CreateAsync(category);
+
+        await SafeAuditAsync(
+            "Category",
+            id.ToString(),
+            "CREATE",
+            before: null,
+            after: new
+            {
+                Id        = id,
+                category.CompanyId,
+                category.Name,
+            },
+            companyId: category.CompanyId);
+
+        return id;
     }
 
     public async Task UpdateAsync(int id, UpdateCategoryRequest request, Guid? currentUserId = null)
@@ -60,8 +77,28 @@ public class CategoryService : ICategoryService
         if (string.IsNullOrEmpty(name))
             throw new InvalidOperationException("O nome da categoria é obrigatório.");
 
+        var before = new
+        {
+            category.Id,
+            category.CompanyId,
+            category.Name,
+        };
+
         category.Name = name;
         await _repo.UpdateAsync(category);
+
+        await SafeAuditAsync(
+            "Category",
+            id.ToString(),
+            "UPDATE",
+            before,
+            after: new
+            {
+                category.Id,
+                category.CompanyId,
+                category.Name,
+            },
+            companyId: category.CompanyId);
     }
 
     public async Task DeleteAsync(int id, Guid? currentUserId = null)
@@ -76,6 +113,19 @@ public class CategoryService : ICategoryService
             throw new InvalidOperationException("Não é possível excluir a categoria: existem competências vinculadas a ela. Remova ou altere a categoria dessas competências primeiro.");
 
         await _repo.DeleteAsync(id);
+
+        await SafeAuditAsync(
+            "Category",
+            id.ToString(),
+            "DELETE",
+            before: new
+            {
+                category.Id,
+                category.CompanyId,
+                category.Name,
+            },
+            after: null,
+            companyId: category.CompanyId);
     }
 
     private async Task EnsureCanManageCategoriesForCompanyAsync(int companyId, Guid? currentUserId)
@@ -94,5 +144,23 @@ public class CategoryService : ICategoryService
             return;
 
         throw new UnauthorizedAccessException("Você não tem permissão para criar ou editar categorias nesta empresa.");
+    }
+
+    private Task SafeAuditAsync(
+        string  entityType,
+        string  entityId,
+        string  operation,
+        object? before,
+        object? after,
+        int?    companyId)
+    {
+        try
+        {
+            return _audit.LogAsync(entityType, entityId, operation, before, after, companyId);
+        }
+        catch
+        {
+            return Task.CompletedTask;
+        }
     }
 }

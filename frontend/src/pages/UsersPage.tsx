@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box, Button, Paper, Table, TableBody, TableCell, TableContainer,
@@ -16,6 +16,7 @@ import type { CompanyOptionResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
 import TableRowActionsMenu from '../components/TableRowActionsMenu'
+import { toast } from '../toast'
 
 const ROWS_PER_PAGE = 50
 
@@ -60,7 +61,7 @@ export default function UsersPage() {
   const { data: paged, isLoading, error } = usePagedUsers(
     page + 1,
     ROWS_PER_PAGE,
-    nameFilter.trim() || undefined,
+    undefined,
     false, // mostrar todos os perfis (admin, gestor, coordenador, colaborador)
     companyIdParam,
   )
@@ -69,11 +70,19 @@ export default function UsersPage() {
   const items = paged?.items ?? []
   const totalCount = paged?.totalCount ?? 0
 
+  const filteredItems = useMemo(() => {
+    if (!items.length) return []
+    const term = nameFilter.trim().toLowerCase()
+    if (!term) return items
+    return items.filter((u) => (u.name ?? '').toLowerCase().includes(term))
+  }, [items, nameFilter])
+
   const handleDelete = async (id: string) => {
     if (!confirm('Confirma exclusão do colaborador?')) return
     setDeleteError(null)
     try {
       await deleteMutation.mutateAsync(id)
+      toast.success('Colaborador excluído com sucesso.')
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
       setDeleteError(e?.response?.data?.message ?? 'Não foi possível excluir. Existem registros associados a este colaborador ou uma regra de negócio impede a exclusão.')
@@ -156,7 +165,7 @@ export default function UsersPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map((u) => {
+              {filteredItems.map((u) => {
                 const profile = getProfileColor(u)
                 const isCommonUser = !u.isAdmin && !u.isManager && !u.isCoordinator
                 const canEditUser = !isLoggedCoordinator || isCommonUser

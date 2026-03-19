@@ -50,7 +50,7 @@ export interface UserResponse {
 export interface CreateUserRequest {
   name: string
   email: string
-  password: string
+  password?: string
   roleId: number | null
   gradeId: number | null
   isManager: boolean
@@ -85,6 +85,88 @@ export interface AdminDashboardStats {
   totalUsers: number
   totalSkills: number
   totalManagers: number
+}
+
+export interface AdminHealthStats {
+  companiesTotal: number
+  companiesActive: number
+  usersTotal: number
+  usersEmailVerified: number
+  teamsTotal: number
+  rolesTotal: number
+  gradesTotal: number
+  categoriesTotal: number
+  skillsTotal: number
+  skillAssessmentsTotal: number
+  auditLogsTotal: number
+  emailLogsTotal: number
+}
+
+export interface DashboardGapSummary {
+  total: number
+  ok: number
+  gap1: number
+  gap2Plus: number
+  adherencePct: number
+  avgGap: number
+}
+
+export interface DashboardCriticalSkill {
+  skillId: number
+  skillName: string
+  categoryName: string
+  criticalCount: number
+  avgCriticalGap: number
+  categoryTotalPairs: number
+  categoryCriticalCount: number
+}
+
+export interface DashboardTeamSummary {
+  teamId: number
+  teamName: string
+  total: number
+  gap2Plus: number
+  adherencePct: number
+  avgGap: number
+}
+
+export interface ManagerTeamDashboard {
+  teamId: number
+  teamName: string
+  summary: DashboardGapSummary
+  criticalSkills: DashboardCriticalSkill[]
+}
+
+export interface ManagerCompanyDashboard {
+  companyId: number
+  companyName: string
+  summary: DashboardGapSummary
+  topCriticalTeams: DashboardTeamSummary[]
+  topCriticalSkills: DashboardCriticalSkill[]
+  teams: ManagerTeamDashboard[]
+}
+
+export interface DashboardCriticalPerson {
+  userId: string
+  name: string
+  roleName: string | null
+  total: number
+  gap2Plus: number
+  adherencePct: number
+  avgGap: number
+}
+
+export interface CoordinatorTeamDashboard {
+  teamId: number
+  teamName: string
+  companyName: string | null
+  summary: DashboardGapSummary
+  criticalSkills: DashboardCriticalSkill[]
+  criticalPeople: DashboardCriticalPerson[]
+}
+
+export interface CoordinatorTeamsDashboard {
+  teams: CoordinatorTeamDashboard[]
 }
 
 // ─── Audit ─────────────────────────────────────────────────────────────────────

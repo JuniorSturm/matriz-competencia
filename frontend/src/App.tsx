@@ -5,7 +5,7 @@ import { useAuth } from './hooks/useAuth'
 import AppLayout from './components/AppLayout'
 import LoginPage from './pages/LoginPage'
 import ForbiddenPage from './pages/ForbiddenPage'
-import DashboardPage from './pages/DashboardPage'
+import DashboardRouterPage from './pages/dashboard/DashboardRouterPage'
 import UsersPage from './pages/UsersPage'
 import UserFormPage from './pages/UserFormPage'
 import SkillsPage from './pages/SkillsPage'
@@ -19,6 +19,13 @@ import RoleFormPage from './pages/RoleFormPage'
 import TeamsPage from './pages/TeamsPage'
 import TeamFormPage from './pages/TeamFormPage'
 import AuditPage from './pages/AuditPage'
+import SignupPage from './pages/SignupPage'
+import SignupVerifyPage from './pages/SignupVerifyPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
+import EmailLogsPage from './pages/EmailLogsPage'
+import InviteAcceptPage from './pages/InviteAcceptPage'
+import ToastProvider from './components/ToastProvider'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -55,8 +62,14 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path='/login' element={<LoginPage />} />
+      <Route path='/signup' element={<SignupPage />} />
+      <Route path='/signup/verify' element={<SignupVerifyPage />} />
+      <Route path='/password/forgot' element={<ForgotPasswordPage />} />
+      <Route path='/password/reset' element={<ResetPasswordPage />} />
+      <Route path='/admin/emails' element={<AdminRoute><EmailLogsPage /></AdminRoute>} />
+      <Route path='/invite/accept' element={<InviteAcceptPage />} />
       <Route path='/forbidden' element={<ForbiddenPage />} />
-      <Route path='/' element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+      <Route path='/' element={<PrivateRoute><DashboardRouterPage /></PrivateRoute>} />
       <Route path='/users' element={<ManagerRoute><UsersPage /></ManagerRoute>} />
       <Route path='/users/new' element={<ManagerRoute><UserFormPage /></ManagerRoute>} />
       <Route path='/users/:id/edit' element={<ManagerRoute><UserFormPage /></ManagerRoute>} />
@@ -81,5 +94,9 @@ function AppRoutes() {
 }
 
 export default function App() {
-  return <AppRoutes />
+  return (
+    <ToastProvider>
+      <AppRoutes />
+    </ToastProvider>
+  )
 }

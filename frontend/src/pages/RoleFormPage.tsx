@@ -15,6 +15,7 @@ import { CompanyPickerDrawer } from '../components/CompanyPickerDrawer'
 import type { CompanyOptionResponse } from '../types'
 import { BRAND } from '../theme/ThemeProvider'
 import PageHeader from '../components/PageHeader'
+import { toast } from '../toast'
 
 export default function RoleFormPage() {
   const navigate = useNavigate()
@@ -68,6 +69,7 @@ export default function RoleFormPage() {
     try {
       if (isEdit && roleId) {
         await updateMutation.mutateAsync({ id: roleId, data: { nome: nome.trim(), descricao: descricao.trim() || null } })
+        toast.success('Cargo atualizado com sucesso.')
       } else {
         const payload = {
           nome: nome.trim(),
@@ -75,6 +77,7 @@ export default function RoleFormPage() {
           companyId: isAdmin ? (companyId as number) : (user?.companyId ?? (companyId as number)),
         }
         await createMutation.mutateAsync(payload)
+        toast.success('Cargo criado com sucesso.')
       }
       navigate('/roles')
     } catch (err: unknown) {
